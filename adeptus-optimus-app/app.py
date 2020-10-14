@@ -1,5 +1,6 @@
 import os
 import subprocess
+import json
 
 from flask import Flask
 from flask import request
@@ -8,15 +9,27 @@ app = Flask(__name__)
 
 
 @app.route('/engine/', methods=['GET'])
-def login():
-    statement = request.args.get('props')
-    if statement is not None:
-        data = query_runner.run(statement)
-        fig = plotter.plot(data, statement, append=int(request.args.get('append')))
-        return "<p>" + fig + "</p>"
+def compare():
+    params = request.args.get('params')
+    print(params)
+    if params is not None:
+        print(json.loads(params))
     else:
-        with open("index.html") as f:
-            return f.read()
+        print("Empty props received")
+    return {
+        "matrix":
+        [
+            [0.75, 0.00, 0.75, 0.75, 0.00],
+            [0.00, 0.00, 0.75, 0.75, 0.00],
+            [0.75, 0.75, 0.75, 0.75, 0.75],
+            [0.00, 0.00, 0.00, 0.75, 0.00],
+            [0.00, 0.00, 0.75, 0.75, 0.00],
+            [0.00, 0.00, 0.75, 0.75, 0.00],
+            [0.75, 0.75, 0.75, 0.75, 0.75],
+            [0.00, 0.00, 0.00, 0.75, 0.00],
+            [0.00, 0.00, 0.75, 0.75, 0.00],
+            [0.00, 0.00, 0.75, 0.75, 0.00]
+        ]}
 
 
 if __name__ == "__main__":
