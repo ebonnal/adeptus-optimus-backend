@@ -85,16 +85,21 @@ def parse_dice_expr(d, complexity_threshold=36, raise_on_failure=False):
     assert (type(d) is str)
     groups = re.fullmatch(r"([1-9][0-9]*)?D([36])?|([0-9]+)", d)
     res = None
+    invalidity_details = ""
     try:
-        if groups.group(1) is None:
-            n_dices = 1
-        else:
-            n_dices = int(groups.group(1))
+
         dices_type = int(groups.group(2))
-        if (n_dices * (1 if dices_type is None else dices_type) > complexity_threshold):
-            res = None
+        # at this point dices type is known
+        if groups.group(1) is not None and int(groups.group(1)) == 1:
+            res = None  # 1D6 is not canonical, should enter D6
+            invalidity_details = f"must be noted 'D{dices_type}'"
         else:
+            if groups.group(1) is None:
+                n_dices = 1
+            else:
+                n_dices = int(groups.group(1))
             res = DiceExpr(n_dices, dices_type)
+
     except TypeError:
         try:
             flat = int(groups.group(3))
@@ -102,8 +107,11 @@ def parse_dice_expr(d, complexity_threshold=36, raise_on_failure=False):
         except TypeError:
             res = None
     finally:
+        # not too many cases splits
+        if res is not None and res.n * (1 if res.dices_type is None else res.dices_type) > complexity_threshold:
+            res = None
         if raise_on_failure:
-            require(res is not None, f"Invalid input: '{d}'")
+            require(res is not None, f"Invalid dices expression: '{d}' {invalidity_details}")
         return res
 
 
@@ -116,6 +124,7 @@ assert (parse_dice_expr("7D6") is None)
 assert (parse_dice_expr("D3").avg == 2)
 assert (parse_dice_expr("3D3").avg == 6)
 assert (parse_dice_expr("D6").avg == 3.5)
+assert (parse_dice_expr("1D6") is None)
 
 
 def parse_roll(roll):
@@ -542,10 +551,10 @@ def compute_heatmap(weapon_a, weapon_b, N):
 
     res["x"] = list(map(x_dims_to_str, svs))
 
-    res["z"] = \
+    score_a_score_b_tuples = \
         [
             [
-                scores_to_comparison_score(
+                (
                     score_weapon_on_target(
                         weapon_a,
                         Target(t, sv, invu=invu, fnp=fnp, w=w),
@@ -559,4 +568,7 @@ def compute_heatmap(weapon_a, weapon_b, N):
             ]
             for w, t, fnp in ws_ts_fnps
         ]
+
+    res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in score_a_score_b_tuples]
+    # TODO: return 2 scores to be in hover log
     return res
