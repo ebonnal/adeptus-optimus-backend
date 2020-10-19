@@ -508,11 +508,11 @@ assert (scores_to_comparison_score(1, 1) == 0)
 
 
 def y_dims_to_str(l):
-    return f"""{l[0]}/{l[1]}/{"-" if l[2] is None else f"{l[2]}+"}"""
+    return f"""T:{l[0]}, W:{l[1]}, fnp:{"-" if l[2] is None else f"{l[2]}+"}"""
 
 
 def x_dims_to_str(l):
-    return f"""{"-" if l[0] is None else f"{l[0]}+"}/{"-" if l[1] is None else f"{l[1]}+"}"""
+    return f"""Sv:{"-" if l[0] is None else f"{l[0]}+"}, invu:{"-" if l[1] is None else f"{l[1]}+"}"""
 
 
 def compute_heatmap(weapon_a, weapon_b, N):
@@ -568,7 +568,7 @@ def compute_heatmap(weapon_a, weapon_b, N):
             ]
             for w, t, fnp in ws_ts_fnps
         ]
-
+    print(res)
     res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in score_a_score_b_tuples]
     # TODO: return 2 scores to be in hover log
     return res
