@@ -10,7 +10,7 @@ from engine import Weapon, compute_heatmap, require, RequirementFailError, Bonus
 
 # Flask
 app = Flask(__name__)
-N = 250
+N = 10000
 
 
 def parse_weapons(params):

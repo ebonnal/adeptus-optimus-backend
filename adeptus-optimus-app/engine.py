@@ -1,9 +1,10 @@
 import random
 import re
 
-import scipy.special
-import scipy.special
 import numpy as np
+import scipy.special
+import scipy.special
+
 
 # Utils
 def map_7_to_None(v):
@@ -81,7 +82,7 @@ dice_4D6 = DiceExpr(4, 6)
 assert (len({dice_4D6.roll() for _ in range(10000)}) == 4 * 6 - 4 + 1)
 
 
-def parse_dice_expr(d, complexity_threshold=36, raise_on_failure=False):
+def parse_dice_expr(d, complexity_threshold=16, raise_on_failure=False):
     assert (type(d) is str)
     groups = re.fullmatch(r"([1-9][0-9]*)?D([36])?|([0-9]+)", d)
     res = None
@@ -217,7 +218,6 @@ class Weapon:
         except Exception as e:
             raise e
         require(self.points is not None and self.points > 0, f"Invalid points value: '{points}'")
-
 
 
 Weapon(hit="5", a="2", s="4D3", ap="1", d="D3", bonuses=Bonuses.empty())
@@ -433,44 +433,33 @@ def get_unsaved_wounds_density(weapon, target, wounds_density):
 
 
 # last step numeric averaging: damage roll + fnp
-def get_avg_figs_fraction_slained(weapon, target, unsaved_wounds_density, N):
+def get_avg_figs_fraction_slained_per_unsaved_wound(weapon, target, N):
     """
     El famoso montecarlo approach
-    :param N: number of simulations for each unsaved wounds entry
+    :param N: number of consecutive wounds resolved: N=1000 leads to a result precise at +- 1.5%
     """
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    assert (isinstance(unsaved_wounds_density, dict))
-    figs_fraction_slained_total_weighted = 0
-    adapted_N = (N // target.w) + 1
-    for unsaved_wounds, prob_unsaved_wounds in unsaved_wounds_density.items():
-        figs_fraction_slained_total_sum = 0
-        for _ in range(adapted_N):
-            figs_fraction_slained_total = 0
-            for start_health in range(1, target.w + 1):
-                n_figs_slained = 0
-                remaining_health = start_health
-                for wound in range(unsaved_wounds):
-                    damages = weapon.d.roll()
-                    if target.fnp is not None:
-                        for damage in range(damages):
-                            if roll_D6() >= target.fnp:
-                                damages -= 1  # fnp success
-                    remaining_health -= damages
-                    if remaining_health <= 0:
-                        n_figs_slained += 1
-                        remaining_health = target.w
-                # e.g. remaining = 1,slained 2, w=3, start = 2: frac = 2 - (1 - 2/3) + (1 - 1/3) 
-                first_slain_fraction = start_health / target.w
-                remaining_fraction = remaining_health / target.w
-                figs_fraction_slained_total += n_figs_slained - (1 - first_slain_fraction) + (1 - remaining_fraction)
+    n_figs_slained = 0
+    remaining_health = target.w
+    for _ in range(N):
+        damages = weapon.d.roll()
+        if target.fnp is not None:
+            for damage in range(damages):
+                if roll_D6() >= target.fnp:
+                    damages -= 1  # fnp success
+        remaining_health -= damages
+        if remaining_health <= 0:
+            n_figs_slained += 1
+            remaining_health = target.w
+    # e.g. remaining = 1,slained 2, w=3, frac = 2 + (1 - 1/3)
+    remaining_fraction = remaining_health / target.w
+    return (n_figs_slained + (1 - remaining_fraction)) / N
 
-            figs_fraction_slained_total_sum += figs_fraction_slained_total
 
-        figs_fraction_slained_total_weighted += prob_unsaved_wounds * figs_fraction_slained_total_sum / (
-                adapted_N * target.w)  # target_wounds is here because of start_health loop
-
-    return figs_fraction_slained_total_weighted
+def get_avg_of_density(d):
+    l = [float(v) * float(p) for v, p in d.items()]
+    return sum(l) / len(l)
 
 
 def score_weapon_on_target(w, t, N):
@@ -485,7 +474,7 @@ def score_weapon_on_target(w, t, N):
     assert (float_eq(sum(w_d.values()), 1))
     uw_d = get_unsaved_wounds_density(w, t, w_d)
     assert (float_eq(sum(uw_d.values()), 1))
-    return get_avg_figs_fraction_slained(w, t, uw_d, N) / w.points
+    return get_avg_figs_fraction_slained_per_unsaved_wound(w, t, N) * get_avg_of_density(uw_d) / w.points
 
 
 # Sv=1 : ignore PA -1
@@ -509,6 +498,21 @@ assert (scores_to_comparison_score(1, 1) == 0)
 
 def y_dims_to_str(l):
     return f"""T:{l[0]}, W:{l[1]}, fnp:{"-" if l[2] is None else f"{l[2]}+"}"""
+
+
+def scores_to_label(score_a, score_b):
+    ratio = round(score_a / score_b, 2)
+    if ratio > 1:
+        return f"Weapon A should destroy {ratio} times more models per point than weapon B"
+    elif ratio < 1:
+        return f"Weapon B should destroy {round(score_b / score_a, 2)} times more models per point than weapon A"
+    else:
+        return "Weapon A and B should destroy the same number of models per point"
+
+
+assert (scores_to_label(1, 1) == "Weapon A and B should destroy the same number of models per point")
+assert (scores_to_label(1, 2) == "Weapon B should destroy 2.0 times more models per point than weapon A")
+assert (scores_to_label(4, 2) == "Weapon A should destroy 2.0 times more models per point than weapon B")
 
 
 def x_dims_to_str(l):
@@ -566,9 +570,13 @@ def compute_heatmap(weapon_a, weapon_b, N):
                 )
                 for sv, invu in svs
             ]
-            for w, t, fnp in ws_ts_fnps
+            for t, w, fnp in ws_ts_fnps
         ]
+    res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in
+                score_a_score_b_tuples]
     print(res)
-    res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in score_a_score_b_tuples]
+    res["labels"] = [[scores_to_label(score_a, score_b) for score_a, score_b in line] for line in
+                     score_a_score_b_tuples]
+
     # TODO: return 2 scores to be in hover log
     return res
