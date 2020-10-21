@@ -1,6 +1,7 @@
 import random
 import re
 
+import math
 import numpy as np
 import scipy.special
 import scipy.special
@@ -262,20 +263,6 @@ def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True):
     return (7 - necessary_roll) / 6
 
 
-def compute_n_hits_ratio(weapon):
-    return compute_successes_ratio(weapon.hit.avg - weapon.bonuses.to_hit)
-
-
-assert (compute_n_hits_ratio(Weapon(hit="2", a="12", s="4", ap="1", d="2D3", bonuses=Bonuses.empty())) == 5 / 6)
-assert (compute_n_hits_ratio(Weapon(hit="5", a="12", s="4", ap="1", d="2D3", bonuses=Bonuses.empty())) == 1 / 3)
-assert (compute_n_hits_ratio(Weapon(hit="3", a="1", s="4", ap="1", d="2D3", bonuses=Bonuses.empty())) == 2 / 3)
-assert (compute_n_hits_ratio(Weapon(hit="3", a="1", s="4", ap="1", d="2D3", bonuses=Bonuses(-1, 0))) == 1 / 2)
-assert (compute_n_hits_ratio(
-    Weapon(hit="2", a="1", s="4", ap="1", d="2D3", bonuses=Bonuses(+1, 0))) == 5 / 6)  # roll of 1 always fails
-assert (compute_n_hits_ratio(
-    Weapon(hit="6", a="1", s="4", ap="1", d="2D3", bonuses=Bonuses(-1, 0))) == 1 / 6)  # roll of 6 always succeeds
-
-
 def compute_necessary_wound_roll(f, e):
     if f >= 2 * e:
         return 2
@@ -288,78 +275,6 @@ def compute_necessary_wound_roll(f, e):
     else:
         assert (f < e)
         return 5
-
-
-def compute_n_wounds_ratios(weapon, target):
-    return [prob * compute_successes_ratio(compute_necessary_wound_roll(f, target.t) - weapon.bonuses.to_wound)
-            for f, prob in prob_by_roll_result(weapon.s).items()]
-
-
-def compute_n_wounds_ratio(weapon, target):
-    return sum(compute_n_wounds_ratios(weapon, target))
-
-
-assert (compute_n_wounds_ratio(
-    Weapon(hit="2", a="1", s="4", ap="1", d="2D3", bonuses=Bonuses(+1, 0)),
-    Target(t=4, sv=3)
-) == 1 / 2)
-
-assert (compute_n_wounds_ratio(
-    Weapon(hit="2", a="12", s="4", ap="1", d="2D3", bonuses=Bonuses(+1, 0)),
-    Target(t=8, sv=3)
-) == 1 / 6)
-
-assert (compute_n_wounds_ratio(
-    Weapon(hit="2", a="1", s="4", ap="1", d="2D3", bonuses=Bonuses(+1, -1)),
-    Target(t=8, sv=3)
-) == 1 / 6)  # roll of 6 always succeeds
-
-assert (compute_n_wounds_ratio(
-    Weapon(hit="2", a="1", s="4", ap="1", d="2D3", bonuses=Bonuses(+1, 0)),
-    Target(t=2, sv=3)
-) == 5 / 6)
-
-assert (compute_n_wounds_ratio(
-    Weapon(hit="2", a="1", s="4", ap="1", d="2D3", bonuses=Bonuses(+1, +1)),
-    Target(t=2, sv=3)
-) == 5 / 6)  # roll of 1 always fails
-
-assert (compute_n_wounds_ratio(
-    Weapon(hit="2", a="1", s="2D3", ap="1", d="2D3", bonuses=Bonuses(+1, 0)),
-    Target(t=12, sv=3)
-) == 1 / 6)
-
-assert (float_eq(compute_n_wounds_ratio(
-    Weapon(hit="2", a="1", s="2D3", ap="1", d="2D3", bonuses=Bonuses(+1, 0)),
-    Target(t=1, sv=3)
-), 5 / 6))
-
-assert (compute_n_wounds_ratio(
-    Weapon(hit="2", a="1", s="2D3", ap="1", d="2D3", bonuses=Bonuses(+1, 0)),
-    Target(t=4, sv=3)
-) < 1 / 2)
-
-
-def n_figs_slained(weapon, target):
-    hit_ratio = compute_n_hits_ratio(weapon)
-    wound_ratio = compute_n_wounds_ratio(weapon, target)
-    return weapon.a.avg * hit_ratio * wound_ratio
-
-
-def total_n_figs_slained(weapons_list, target):
-    print("tatata")
-
-
-# In[230]:
-
-
-n_figs_slained(
-    Weapon(hit="5", a="12", s="4", ap="1", d="2D3", bonuses=Bonuses(+1, 0)),
-    Target(t=8, sv=3)
-)
-
-
-# In[334]:
 
 
 # Engine v2
@@ -401,6 +316,9 @@ def get_hits_density(weapon, attack_density):
 
 # [......]  woud density
 def get_wounds_density(weapon, target, hits_density):
+    """
+    Random strength value is resolved once per weapon
+    """
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
     assert (isinstance(hits_density, dict))
@@ -427,39 +345,194 @@ def get_unsaved_wounds_density(weapon, target, wounds_density):
                 save_roll = min(save_roll, target.invu)
             unsaved_wounds_ratio = 1 - compute_successes_ratio(save_roll, auto_success_on_6=False)
             for unsaved_wounds, prob_unsaved_wounds in dispatch_density_key(wounds, unsaved_wounds_ratio).items():
-                unsaved_wounds_density[unsaved_wounds] = unsaved_wounds_density.get(unsaved_wounds,
-                                                                                    0) + prob_unsaved_wounds * prob_ap_roll * prob_wounds
+                unsaved_wounds_density[unsaved_wounds] = \
+                    unsaved_wounds_density.get(unsaved_wounds, 0) + prob_unsaved_wounds * prob_ap_roll * prob_wounds
     return unsaved_wounds_density
 
+
+def exact_avg_figs_fraction_slained_per_unsaved_wound(d, w):
+    return 1 / math.ceil(w / d)
+
+
+assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
+assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
+assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
+
+def update_slained_figs_ratios(n_unsaved_wounds_left,
+                               current_wound_n_damages_left,
+                               n_figs_slained_so_far,
+                               remaining_target_wounds,
+                               prob_node,
+                               start_target_wounds,
+                               fnp_fail_ratio,
+                               n_figs_slained_weighted_ratios,
+                               weapon_d,
+                               target_fnp,
+                               target_wounds,
+                               n_unsaved_wounds_init,
+                               prob_min_until_cut,
+                               current_wound_init_n_damages):
+    assert (remaining_target_wounds >= 0)
+    assert (n_unsaved_wounds_left >= 0)
+    assert (current_wound_n_damages_left >= 0)
+    if prob_node == 0:
+        return
+
+    # resolve a model kill
+    if remaining_target_wounds == 0:
+        remaining_target_wounds = target_wounds
+        n_figs_slained_so_far += 1
+        # additionnal damages are not propagated to other models
+        current_wound_n_damages_left = 0
+        update_slained_figs_ratios(n_unsaved_wounds_left,
+                                   current_wound_n_damages_left,
+                                   n_figs_slained_so_far,
+                                   remaining_target_wounds,
+                                   prob_node,
+                                   start_target_wounds,
+                                   fnp_fail_ratio,
+                                   n_figs_slained_weighted_ratios,
+                                   weapon_d=weapon_d, target_fnp=target_fnp, target_wounds=target_wounds,
+                                   n_unsaved_wounds_init=n_unsaved_wounds_init,
+                                   prob_min_until_cut=prob_min_until_cut,
+                                   current_wound_init_n_damages=current_wound_init_n_damages)
+        return
+
+    # leaf: no more damages to fnp no more wounds to consume or p(leaf) < threshold
+    if prob_node < prob_min_until_cut or (n_unsaved_wounds_left == 0 and current_wound_n_damages_left == 0):
+        # print("leaf: n_figs_slained_so_far =", n_figs_slained_so_far, "remaining_target_wounds=", remaining_target_wounds )
+        if current_wound_n_damages_left > 0:
+            # wounds not used when branch is cut
+            unused_unsaved_wounds_portion = n_unsaved_wounds_left + current_wound_n_damages_left/current_wound_init_n_damages
+        else:
+            unused_unsaved_wounds_portion = n_unsaved_wounds_left
+        if n_unsaved_wounds_init == unused_unsaved_wounds_portion:
+            assert(n_figs_slained_so_far == 0)
+        else:
+            used_unsaved_wounds_portion = n_unsaved_wounds_init - unused_unsaved_wounds_portion
+            assert(used_unsaved_wounds_portion > 0)
+            n_figs_slained_weighted_ratios.append(
+                # prob, n_figs_slained_ratio_per_wound
+                (
+                    prob_node ,
+                    (n_figs_slained_so_far +
+                     (-1 + start_target_wounds / target_wounds) +  # portion of the first model cleaned
+                     (1 - remaining_target_wounds / target_wounds)) /  # portion of the last model injured
+                    (used_unsaved_wounds_portion)
+                )
+            )
+        return
+
+    # consume a wound
+    if current_wound_n_damages_left == 0:
+        n_unsaved_wounds_left -= 1
+        # random doms handling
+        for d, prob_d in prob_by_roll_result(weapon_d).items():
+            current_wound_n_damages_left = d
+            update_slained_figs_ratios(n_unsaved_wounds_left,
+                                       current_wound_n_damages_left,
+                                       n_figs_slained_so_far,
+                                       remaining_target_wounds,
+                                       prob_node * prob_d,
+                                       start_target_wounds,
+                                       fnp_fail_ratio,
+                                       n_figs_slained_weighted_ratios,
+                                       weapon_d=weapon_d, target_fnp=target_fnp, target_wounds=target_wounds,
+                                       n_unsaved_wounds_init=n_unsaved_wounds_init,
+                                       prob_min_until_cut=prob_min_until_cut,
+                                       current_wound_init_n_damages=current_wound_n_damages_left)
+        return
+
+    # FNP success
+    update_slained_figs_ratios(
+        n_unsaved_wounds_left,
+        current_wound_n_damages_left - 1,
+        n_figs_slained_so_far,
+        remaining_target_wounds,
+        prob_node * (1 - fnp_fail_ratio),
+        start_target_wounds,
+        fnp_fail_ratio,
+        n_figs_slained_weighted_ratios,
+        weapon_d=weapon_d, target_fnp=target_fnp, target_wounds=target_wounds,
+        n_unsaved_wounds_init=n_unsaved_wounds_init,
+        prob_min_until_cut=prob_min_until_cut,
+        current_wound_init_n_damages=current_wound_init_n_damages)
+
+    # FNP fail
+    update_slained_figs_ratios(
+        n_unsaved_wounds_left,
+        current_wound_n_damages_left - 1,
+        n_figs_slained_so_far,
+        remaining_target_wounds - 1,
+        prob_node * fnp_fail_ratio,
+        start_target_wounds,
+        fnp_fail_ratio,
+        n_figs_slained_weighted_ratios,
+        weapon_d=weapon_d, target_fnp=target_fnp, target_wounds=target_wounds,
+        n_unsaved_wounds_init=n_unsaved_wounds_init,
+        prob_min_until_cut=prob_min_until_cut,
+        current_wound_init_n_damages=current_wound_init_n_damages)
+
+
+def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds,
+                                n_unsaved_wounds_init=32,
+                                prob_min_until_cut=0.0001):
+    n_figs_slained_weighted_ratios = []
+    fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
+    for start_target_wounds in range(target_wounds, target_wounds + 1):
+        update_slained_figs_ratios(
+            n_unsaved_wounds_left=n_unsaved_wounds_init,
+            current_wound_n_damages_left=0,
+            n_figs_slained_so_far=0,
+            remaining_target_wounds=start_target_wounds,
+            prob_node=1,
+            start_target_wounds=start_target_wounds,
+            fnp_fail_ratio=fnp_fail_ratio,
+            n_figs_slained_weighted_ratios=n_figs_slained_weighted_ratios,
+            weapon_d=weapon_d, target_fnp=target_fnp, target_wounds=target_wounds,
+            n_unsaved_wounds_init=n_unsaved_wounds_init,
+            prob_min_until_cut=prob_min_until_cut,
+            current_wound_init_n_damages=0)
+    # print(n_figs_slained_weighted_ratios)
+    print(f"{len(n_figs_slained_weighted_ratios)/1} leafs by single tree, for depth={n_unsaved_wounds_init}")
+    return sum(map(lambda tup: tup[0] * tup[1], n_figs_slained_weighted_ratios))/1
+
+# FNP
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 6, 1), 5/6, 0))
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 5, 1), 4/6, 0))
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 4, 1), 0.5, 0))
+# on W=2
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), None, 2), 0.5, 0))
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2), 1, 0))
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0))
+# random doms
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), None, 35), 0.1, 0))
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), 4, 70, n_unsaved_wounds_init=32, prob_min_until_cut=0.0001), 0.025, 0))
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), 5, 70, n_unsaved_wounds_init=32, prob_min_until_cut=0.0001), 2/60, 0))
 
 # last step numeric averaging: damage roll + fnp
 def get_avg_figs_fraction_slained_per_unsaved_wound(weapon, target, N):
     """
-    El famoso montecarlo approach
-    :param N: number of consecutive wounds resolved: N=1000 leads to a result precise at +- 1.5%
+    Random damage value is resolved once per unsaved wound
+
+    :param N: number of consecutive wounds resolved:
+          - N=1000 leads to a result precise at +- 1.5%
+          - N=10000 leads to a result precise at +- 0.5%
     """
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    n_figs_slained = 0
-    remaining_health = target.w
-    for _ in range(N):
-        damages = weapon.d.roll()
-        if target.fnp is not None:
-            for damage in range(damages):
-                if roll_D6() >= target.fnp:
-                    damages -= 1  # fnp success
-        remaining_health -= damages
-        if remaining_health <= 0:
-            n_figs_slained += 1
-            remaining_health = target.w
-    # e.g. remaining = 1,slained 2, w=3, frac = 2 + (1 - 1/3)
-    remaining_fraction = remaining_health / target.w
-    return (n_figs_slained + (1 - remaining_fraction)) / N
+    if weapon.d.dices_type is None and target.fnp is None:
+        return exact_avg_figs_fraction_slained_per_unsaved_wound(d=weapon.d.n, w=target.w)
+
+    return compute_slained_figs_ratios_per_unsaved_wound(weapon.d, target.fnp, target.w)
 
 
 def get_avg_of_density(d):
     l = [float(v) * float(p) for v, p in d.items()]
-    return sum(l) / len(l)
+    return sum(l)
+
+
+assert (get_avg_of_density(get_attack_density(Weapon(hit="1", a="D3", s="1", ap="1", d="1"))) == 2)
 
 
 def score_weapon_on_target(w, t, N):
@@ -574,9 +647,11 @@ def compute_heatmap(weapon_a, weapon_b, N):
         ]
     res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in
                 score_a_score_b_tuples]
-    print(res)
     res["labels"] = [[scores_to_label(score_a, score_b) for score_a, score_b in line] for line in
                      score_a_score_b_tuples]
+    print(res)
 
     # TODO: return 2 scores to be in hover log
     return res
+
+

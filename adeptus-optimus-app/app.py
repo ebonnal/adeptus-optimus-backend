@@ -10,7 +10,7 @@ from engine import Weapon, compute_heatmap, require, RequirementFailError, Bonus
 
 # Flask
 app = Flask(__name__)
-N = 10000
+N = 1
 
 
 def parse_weapons(params):
@@ -49,6 +49,7 @@ def compare():
             return {"msg": f"Bad input: {e}"}, 422
 
     except Exception as e:
+        print(e, e.__traceback__)
         return {"msg": f"{type(e)}: {str(e)}"}, 500
 
 # Utils
