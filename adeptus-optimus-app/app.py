@@ -10,7 +10,6 @@ from engine import Weapon, compute_heatmap, require, RequirementFailError, Bonus
 
 # Flask
 app = Flask(__name__)
-N = 1
 
 
 def parse_weapons(params):
@@ -44,7 +43,7 @@ def compare():
         else:
             print("Empty props received")
         try:
-            return compute_heatmap(*parse_weapons(params), N=N), 200
+            return compute_heatmap(*parse_weapons(params)), 200
         except RequirementFailError as e:
             return {"msg": f"Bad input: {e}"}, 422
 

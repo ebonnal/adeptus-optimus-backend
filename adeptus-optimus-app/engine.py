@@ -145,10 +145,14 @@ assert (parse_roll("6+") == 6)
 assert (parse_roll("7+") is None)
 assert (parse_roll("3") is None)
 
+def float_eq(a, b, n_same_decimals=4):
+    return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
 
-def float_eq(a, b):
-    return np.isclose(a, b, rtol=1e-05, atol=1e-08, equal_nan=False)
-
+assert(float_eq(1, 1.01, 1))
+assert(float_eq(0.3333, 0.3334, 2))
+assert(float_eq(0.03333, 0.03334, 2))
+assert(not float_eq(0.3333, 0.334, 2))
+assert(not float_eq(0.03333, 0.0334, 2))
 
 def prob_by_roll_result(dice_expr):
     if dice_expr.dices_type is None:
@@ -511,7 +515,7 @@ assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), 4,
 assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), 5, 70, n_unsaved_wounds_init=32, prob_min_until_cut=0.0001), 2/60, 0))
 
 # last step numeric averaging: damage roll + fnp
-def get_avg_figs_fraction_slained_per_unsaved_wound(weapon, target, N):
+def get_avg_figs_fraction_slained_per_unsaved_wound(weapon, target):
     """
     Random damage value is resolved once per unsaved wound
 
@@ -535,7 +539,7 @@ def get_avg_of_density(d):
 assert (get_avg_of_density(get_attack_density(Weapon(hit="1", a="D3", s="1", ap="1", d="1"))) == 2)
 
 
-def score_weapon_on_target(w, t, N):
+def score_weapon_on_target(w, t):
     """
     avg_figs_fraction_slained by point
     """
@@ -547,14 +551,14 @@ def score_weapon_on_target(w, t, N):
     assert (float_eq(sum(w_d.values()), 1))
     uw_d = get_unsaved_wounds_density(w, t, w_d)
     assert (float_eq(sum(uw_d.values()), 1))
-    return get_avg_figs_fraction_slained_per_unsaved_wound(w, t, N) * get_avg_of_density(uw_d) / w.points
+    return get_avg_figs_fraction_slained_per_unsaved_wound(w, t) * get_avg_of_density(uw_d) / w.points
 
 
 # Sv=1 : ignore PA -1
 wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", bonuses=Bonuses(0, 0), points=120)
 wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", bonuses=Bonuses(0, 0), points=120)
 tar = Target(t=4, sv=1, invu=5, fnp=6, w=16)
-assert (abs(score_weapon_on_target(wea, tar, 1000) / score_weapon_on_target(wea2, tar, 100) - 1) <= 0.25)
+assert (abs(score_weapon_on_target(wea, tar) / score_weapon_on_target(wea2, tar) - 1) <= 0.25)
 
 
 def scores_to_comparison_score(score_a, score_b):
@@ -592,7 +596,7 @@ def x_dims_to_str(l):
     return f"""Sv:{"-" if l[0] is None else f"{l[0]}+"}, invu:{"-" if l[1] is None else f"{l[1]}+"}"""
 
 
-def compute_heatmap(weapon_a, weapon_b, N):
+def compute_heatmap(weapon_a, weapon_b):
     res = {}
     ws_ts_fnps = []
     for w, ts in zip(
@@ -634,12 +638,10 @@ def compute_heatmap(weapon_a, weapon_b, N):
                 (
                     score_weapon_on_target(
                         weapon_a,
-                        Target(t, sv, invu=invu, fnp=fnp, w=w),
-                        N),
+                        Target(t, sv, invu=invu, fnp=fnp, w=w)),
                     score_weapon_on_target(
                         weapon_b,
-                        Target(t, sv, invu=invu, fnp=fnp, w=w),
-                        N)
+                        Target(t, sv, invu=invu, fnp=fnp, w=w))
                 )
                 for sv, invu in svs
             ]
