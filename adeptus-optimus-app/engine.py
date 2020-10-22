@@ -212,7 +212,7 @@ class Weapon:
         self.a = parse_dice_expr(a, raise_on_failure=True)
         self.s = parse_dice_expr(s, raise_on_failure=True)
         self.ap = parse_dice_expr(ap, raise_on_failure=True)
-        self.d = parse_dice_expr(d, raise_on_failure=True)
+        self.d = parse_dice_expr(d, complexity_threshold=6, raise_on_failure=True)
 
         self.bonuses = bonuses
 
