@@ -418,7 +418,7 @@ def update_slained_figs_ratios(n_unsaved_wounds_left,
             n_figs_slained_weighted_ratios.append(
                 # prob, n_figs_slained_ratio_per_wound
                 (
-                    prob_node ,
+                    prob_node *
                     (n_figs_slained_so_far +
                      (-1 + start_target_wounds / target_wounds) +  # portion of the first model cleaned
                      (1 - remaining_target_wounds / target_wounds)) /  # portion of the last model injured
@@ -479,7 +479,7 @@ def update_slained_figs_ratios(n_unsaved_wounds_left,
 
 
 def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds,
-                                n_unsaved_wounds_init=32,
+                                n_unsaved_wounds_init=5,
                                 prob_min_until_cut=0.0001):
     n_figs_slained_weighted_ratios = []
     fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
@@ -498,8 +498,9 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
             prob_min_until_cut=prob_min_until_cut,
             current_wound_init_n_damages=0)
     # print(n_figs_slained_weighted_ratios)
-    print(f"{len(n_figs_slained_weighted_ratios)/1} leafs by single tree, for depth={n_unsaved_wounds_init}")
-    return sum(map(lambda tup: tup[0] * tup[1], n_figs_slained_weighted_ratios))/1
+    # print(f"{len(n_figs_slained_weighted_ratios)/1} leafs by single tree, for depth={n_unsaved_wounds_init}")
+    # return sum(map(lambda tup: tup[0] * tup[1], n_figs_slained_weighted_ratios))/1
+    return sum(n_figs_slained_weighted_ratios)/1
 
 # FNP
 assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 6, 1), 5/6, 0))
