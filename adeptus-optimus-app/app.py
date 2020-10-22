@@ -1,6 +1,7 @@
 import os
 import subprocess
 import json
+from time import time
 
 # TODO: log on GCS each duration and parameters and id/token
 from flask import Flask
@@ -35,6 +36,7 @@ def parse_weapons(params):
 
 @app.route('/engine/', methods=['GET'])
 def compare():
+    start_time = time()
     try:
         params = request.args.get('params')
         print(params)
@@ -45,11 +47,12 @@ def compare():
         try:
             return compute_heatmap(*parse_weapons(params)), 200
         except RequirementFailError as e:
-            return {"msg": f"Bad input: {e}"}, 422
-
+            response = {"msg": f"Bad input: {e}"}, 422
     except Exception as e:
         print(e, e.__traceback__)
-        return {"msg": f"{type(e)}: {str(e)}"}, 500
+        response = {"msg": f"{type(e)}: {str(e)}"}, 500
+    print(f"Request processing took {time() - start_time} seconds")
+    return response
 
 # Utils
 def assertParamsValidity(params):

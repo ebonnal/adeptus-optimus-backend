@@ -585,6 +585,8 @@ t1 = Target(t=8, sv=6, invu=None, fnp=6, w=1)
 t2 = Target(t=7, sv=6, invu=None, fnp=6, w=1)
 assert(score_weapon_on_target(w1, t1) > 1.1 * score_weapon_on_target(w2, t1))
 assert(score_weapon_on_target(w1, t2) < 1.1 * score_weapon_on_target(w2, t2))
+w3, w4 = Weapon("5", "7", "2D6", "1", "1", bonuses=Bonuses.empty()), Weapon("5", "2D6", "2D6", "1", "1", bonuses=Bonuses.empty())
+assert(float_eq(score_weapon_on_target(w3, t1), score_weapon_on_target(w4, t1)))
 
 def scores_to_comparison_score(score_a, score_b):
     if score_a > score_b:
