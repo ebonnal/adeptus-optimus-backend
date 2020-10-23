@@ -45,7 +45,7 @@ def compare():
         else:
             print("Empty props received")
         try:
-            return compute_heatmap(*parse_weapons(params)), 200
+            response = compute_heatmap(*parse_weapons(params)), 200
         except RequirementFailError as e:
             response = {"msg": f"Bad input: {e}"}, 422
     except Exception as e:

@@ -283,79 +283,6 @@ def compute_necessary_wound_roll(f, e):
         return 5
 
 
-# Engine v2
-def dispatch_density_key(previous_density_key, next_density_prob):
-    assert (type(previous_density_key) is int)
-    assert (previous_density_key >= 0)
-    assert (0 < next_density_prob and next_density_prob <= 1)
-    n = previous_density_key
-    p = next_density_prob
-    return {k: scipy.special.comb(n, k) * p ** k * (1 - p) ** (n - k) for k in range(0, n + 1)}
-
-
-assert (dispatch_density_key(3, 0.5) == {0: 0.125, 1: 0.375, 2: 0.375, 3: 0.125})
-
-
-# new version:
-# 3 A, c 4, f 4 endu 4
-# [0, 0, 0, 1] attacks density
-def get_attack_density(weapon):
-    assert (isinstance(weapon, Weapon))
-    return {a: prob for a, prob in prob_by_roll_result(weapon.a).items()}
-
-
-# [1/8, 3/8, 3/8 ,1/8] hit density
-def get_hits_density(weapon, attack_density):
-    assert (isinstance(weapon, Weapon))
-    assert (isinstance(attack_density, dict))
-    hits_density = {}
-    for a, prob_a in attack_density.items():
-        # {1: 0.3333333333333333, 2: 0.3333333333333333, 3: 0.3333333333333333}
-        for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
-            # {5: 1}
-            hits_ratio = compute_successes_ratio(hit_roll - weapon.bonuses.to_hit)
-            # 0.5
-            for hits, prob_hits in dispatch_density_key(a, hits_ratio).items():
-                hits_density[hits] = hits_density.get(hits, 0) + prob_hits * prob_hit_roll * prob_a
-    return hits_density
-
-
-# [......]  woud density
-def get_wounds_density(weapon, target, hits_density):
-    """
-    Random strength value is resolved once per weapon
-    """
-    assert (isinstance(weapon, Weapon))
-    assert (isinstance(target, Target))
-    assert (isinstance(hits_density, dict))
-    wounds_density = {}
-    for hits, prob_hits in hits_density.items():
-        for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
-            wounds_ratio = compute_successes_ratio(
-                compute_necessary_wound_roll(s_roll, target.t) - weapon.bonuses.to_wound)
-            for wounds, prob_wounds in dispatch_density_key(hits, wounds_ratio).items():
-                wounds_density[wounds] = wounds_density.get(wounds, 0) + prob_wounds * prob_s_roll * prob_hits
-    return wounds_density
-
-
-# [......] unsaved wounds density
-def get_unsaved_wounds_density(weapon, target, wounds_density):
-    assert (isinstance(weapon, Weapon))
-    assert (isinstance(target, Target))
-    assert (isinstance(wounds_density, dict))
-    unsaved_wounds_density = {}
-    for wounds, prob_wounds in wounds_density.items():
-        for ap_roll, prob_ap_roll in prob_by_roll_result(weapon.ap).items():
-            save_roll = target.sv + ap_roll
-            if target.invu is not None:
-                save_roll = min(save_roll, target.invu)
-            unsaved_wounds_ratio = 1 - compute_successes_ratio(save_roll, auto_success_on_6=False)
-            for unsaved_wounds, prob_unsaved_wounds in dispatch_density_key(wounds, unsaved_wounds_ratio).items():
-                unsaved_wounds_density[unsaved_wounds] = \
-                    unsaved_wounds_density.get(unsaved_wounds, 0) + prob_unsaved_wounds * prob_ap_roll * prob_wounds
-    return unsaved_wounds_density
-
-
 def exact_avg_figs_fraction_slained_per_unsaved_wound(d, w):
     return 1 / math.ceil(w / d)
 
@@ -555,23 +482,50 @@ def get_avg_of_density(d):
 
 assert (get_avg_of_density(get_attack_density(Weapon(hit="1", a="D3", s="1", ap="1", d="1"))) == 2)
 
+# V3
 
-def score_weapon_on_target(w, t):
+
+def get_hit_ratio(weapon):
+    assert (isinstance(weapon, Weapon))
+    hit_ratio = 0
+    for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
+        hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.bonuses.to_wound)
+    return hit_ratio
+
+
+def get_wound_ratio(weapon, target):
+    """
+    Random strength value is resolved once per weapon
+    """
+    assert (isinstance(weapon, Weapon))
+    assert (isinstance(target, Target))
+    wound_ratio = 0
+    for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
+        wound_ratio += compute_successes_ratio(compute_necessary_wound_roll(s_roll, target.t) - weapon.bonuses.to_wound) * prob_s_roll
+    return wound_ratio
+
+
+def get_unsaved_wound_ratio(weapon, target):
+    assert (isinstance(weapon, Weapon))
+    assert (isinstance(target, Target))
+    unsaved_wound_ratio = 0
+    for ap_roll, prob_ap_roll in prob_by_roll_result(weapon.ap).items():
+        save_roll = target.sv + ap_roll
+        if target.invu is not None:
+            save_roll = min(save_roll, target.invu)
+        save_fail_ratio = 1 - compute_successes_ratio(save_roll, auto_success_on_6=False)
+        unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
+    return unsaved_wound_ratio
+
+
+def score_weapon_on_target(w, t, avg_n_attacks=None, hit_ratio=None):
     """
     avg_figs_fraction_slained by point
     """
-    a_d = {1: 1}
-    h_d = get_hits_density(w, a_d)
-    w_d = get_wounds_density(w, t, h_d)
-    uw_d = get_unsaved_wounds_density(w, t, w_d)
-    assert (float_eq(sum(a_d.values()), 1))
-    assert (float_eq(sum(h_d.values()), 1))
-    assert (float_eq(sum(w_d.values()), 1))
-    assert (float_eq(sum(uw_d.values()), 1))
-    return get_avg_figs_fraction_slained_per_unsaved_wound(w, t) * \
-           uw_d[1] * \
-           get_avg_of_density(get_attack_density(w)) / \
-           w.points
+    avg_n_attacks = w.a.avg if avg_n_attacks is None else avg_n_attacks
+    hit_ratio = get_hit_ratio(w) if hit_ratio is None else hit_ratio
+    return avg_n_attacks * hit_ratio * get_wound_ratio(w, t) * get_unsaved_wound_ratio(w, t) \
+           * get_avg_figs_fraction_slained_per_unsaved_wound(w, t) / w.points
 
 
 # Sv=1 : ignore PA -1
@@ -659,16 +613,25 @@ def compute_heatmap(weapon_a, weapon_b):
 
     res["x"] = list(map(x_dims_to_str, svs))
 
+    # target independant
+    avg_attack_a, avg_attack_b = weapon_a.a.avg, weapon_b.a.avg
+    hit_ratio_a, hit_ratio_b = get_hit_ratio(weapon_a), get_hit_ratio(weapon_b)
+    
     score_a_score_b_tuples = \
         [
             [
                 (
                     score_weapon_on_target(
                         weapon_a,
-                        Target(t, sv, invu=invu, fnp=fnp, w=w)),
+                        Target(t, sv, invu=invu, fnp=fnp, w=w),
+                        avg_attack_a,
+                        hit_ratio_a
+                    ),
                     score_weapon_on_target(
                         weapon_b,
-                        Target(t, sv, invu=invu, fnp=fnp, w=w))
+                        Target(t, sv, invu=invu, fnp=fnp, w=w),
+                        avg_attack_b,
+                        hit_ratio_b)
                 )
                 for sv, invu in svs
             ]
