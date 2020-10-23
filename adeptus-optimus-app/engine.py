@@ -3,6 +3,7 @@ import re
 
 import math
 
+import scipy.special
 
 # Utils
 def map_7_to_None(v):
@@ -281,6 +282,20 @@ def compute_necessary_wound_roll(f, e):
         return 5
 
 
+# Engine v2
+def dispatch_density_key(previous_density_key, next_density_prob):
+    assert (type(previous_density_key) is int)
+    assert (previous_density_key >= 0)
+    assert (0 < next_density_prob and next_density_prob <= 1)
+    n = previous_density_key
+    p = next_density_prob
+    return {k: scipy.special.comb(n, k) * p ** k * (1 - p) ** (n - k) for k in range(0, n + 1)}
+
+
+assert (dispatch_density_key(3, 0.5) == {0: 0.125, 1: 0.375, 2: 0.375, 3: 0.125})
+
+
+
 def exact_avg_figs_fraction_slained_per_unsaved_wound(d, w):
     return 1 / math.ceil(w / d)
 
@@ -332,7 +347,6 @@ def update_slained_figs_ratios(n_unsaved_wounds_left,
 
     # leaf: no more damages to fnp no more wounds to consume or p(leaf) < threshold
     if prob_node < prob_min_until_cut or (n_unsaved_wounds_left == 0 and current_wound_n_damages_left == 0):
-        # print("leaf: n_figs_slained_so_far =", n_figs_slained_so_far, "remaining_target_wounds=", remaining_target_wounds )
         if current_wound_n_damages_left > 0:
             # wounds not used when branch is cut
             unused_unsaved_wounds_portion = n_unsaved_wounds_left + current_wound_n_damages_left / current_wound_init_n_damages
@@ -411,24 +425,23 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
                                                   prob_min_until_cut=0.0001):
     n_figs_slained_weighted_ratios = []
     fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
-    for start_target_wounds in range(target_wounds, target_wounds + 1):
-        update_slained_figs_ratios(
-            n_unsaved_wounds_left=n_unsaved_wounds_init,
-            current_wound_n_damages_left=0,
-            n_figs_slained_so_far=0,
-            remaining_target_wounds=start_target_wounds,
-            prob_node=1,
-            start_target_wounds=start_target_wounds,
-            fnp_fail_ratio=fnp_fail_ratio,
-            n_figs_slained_weighted_ratios=n_figs_slained_weighted_ratios,
-            weapon_d=weapon_d, target_fnp=target_fnp, target_wounds=target_wounds,
-            n_unsaved_wounds_init=n_unsaved_wounds_init,
-            prob_min_until_cut=prob_min_until_cut,
-            current_wound_init_n_damages=0)
-    # print(n_figs_slained_weighted_ratios)
-    # print(f"{len(n_figs_slained_weighted_ratios)/1} leafs by single tree, for depth={n_unsaved_wounds_init}")
+    start_target_wounds = target_wounds
+    update_slained_figs_ratios(
+        n_unsaved_wounds_left=n_unsaved_wounds_init,
+        current_wound_n_damages_left=0,
+        n_figs_slained_so_far=0,
+        remaining_target_wounds=start_target_wounds,
+        prob_node=1,
+        start_target_wounds=start_target_wounds,
+        fnp_fail_ratio=fnp_fail_ratio,
+        n_figs_slained_weighted_ratios=n_figs_slained_weighted_ratios,
+        weapon_d=weapon_d, target_fnp=target_fnp, target_wounds=target_wounds,
+        n_unsaved_wounds_init=n_unsaved_wounds_init,
+        prob_min_until_cut=prob_min_until_cut,
+        current_wound_init_n_damages=0)
+    print(f"{len(n_figs_slained_weighted_ratios)} leafs by single tree, for depth={n_unsaved_wounds_init}")
     # return sum(map(lambda tup: tup[0] * tup[1], n_figs_slained_weighted_ratios))/1
-    return sum(n_figs_slained_weighted_ratios) / 1
+    return sum(n_figs_slained_weighted_ratios)
 
 
 # FNP
@@ -527,7 +540,90 @@ def score_weapon_on_target(w, t, avg_n_attacks=None, hit_ratio=None):
     return avg_n_attacks * hit_ratio * get_wound_ratio(w, t) * get_unsaved_wound_ratio(w, t) \
            * get_avg_figs_fraction_slained_per_unsaved_wound(w, t) / w.points
 
+## LEGACY
 
+# new version:
+# 3 A, c 4, f 4 endu 4
+# [0, 0, 0, 1] attacks density
+def get_attack_density(weapon):
+    assert (isinstance(weapon, Weapon))
+    return {a: prob for a, prob in prob_by_roll_result(weapon.a).items()}
+
+
+# [1/8, 3/8, 3/8 ,1/8] hit density
+def get_hits_density(weapon, attack_density):
+    assert (isinstance(weapon, Weapon))
+    assert (isinstance(attack_density, dict))
+    hits_density = {}
+    for a, prob_a in attack_density.items():
+        # {1: 0.3333333333333333, 2: 0.3333333333333333, 3: 0.3333333333333333}
+        for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
+            # {5: 1}
+            hits_ratio = compute_successes_ratio(hit_roll - weapon.bonuses.to_hit)
+            # 0.5
+            for hits, prob_hits in dispatch_density_key(a, hits_ratio).items():
+                hits_density[hits] = hits_density.get(hits, 0) + prob_hits * prob_hit_roll * prob_a
+    return hits_density
+
+
+# [......]  woud density
+def get_wounds_density(weapon, target, hits_density):
+    """
+    Random strength value is resolved once per weapon
+    """
+    assert (isinstance(weapon, Weapon))
+    assert (isinstance(target, Target))
+    assert (isinstance(hits_density, dict))
+    wounds_density = {}
+    for hits, prob_hits in hits_density.items():
+        for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
+            wounds_ratio = compute_successes_ratio(
+                compute_necessary_wound_roll(s_roll, target.t) - weapon.bonuses.to_wound)
+            for wounds, prob_wounds in dispatch_density_key(hits, wounds_ratio).items():
+                wounds_density[wounds] = wounds_density.get(wounds, 0) + prob_wounds * prob_s_roll * prob_hits
+    return wounds_density
+
+
+# [......] unsaved wounds density
+def get_unsaved_wounds_density(weapon, target, wounds_density):
+    assert (isinstance(weapon, Weapon))
+    assert (isinstance(target, Target))
+    assert (isinstance(wounds_density, dict))
+    unsaved_wounds_density = {}
+    for wounds, prob_wounds in wounds_density.items():
+        for ap_roll, prob_ap_roll in prob_by_roll_result(weapon.ap).items():
+            save_roll = target.sv + ap_roll
+            if target.invu is not None:
+                save_roll = min(save_roll, target.invu)
+            unsaved_wounds_ratio = 1 - compute_successes_ratio(save_roll, auto_success_on_6=False)
+            for unsaved_wounds, prob_unsaved_wounds in dispatch_density_key(wounds, unsaved_wounds_ratio).items():
+                unsaved_wounds_density[unsaved_wounds] = \
+                    unsaved_wounds_density.get(unsaved_wounds, 0) + prob_unsaved_wounds * prob_ap_roll * prob_wounds
+    return unsaved_wounds_density
+
+
+def score_weapon_on_target_legacy(w, t):
+    """
+    avg_figs_fraction_slained by point
+    """
+    a_d = {1: 1}
+    h_d = get_hits_density(w, a_d)
+    w_d = get_wounds_density(w, t, h_d)
+    uw_d = get_unsaved_wounds_density(w, t, w_d)
+    assert (float_eq(sum(a_d.values()), 1))
+    assert (float_eq(sum(h_d.values()), 1))
+    assert (float_eq(sum(w_d.values()), 1))
+    assert (float_eq(sum(uw_d.values()), 1))
+    return get_avg_figs_fraction_slained_per_unsaved_wound(w, t) * \
+           uw_d[1] * \
+           get_avg_of_density(get_attack_density(w)) / \
+           w.points
+## END LEGACY
+
+print(
+    score_weapon_on_target_legacy(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)),
+    score_weapon_on_target(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)),
+)
 # Sv=1 : ignore PA -1
 wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", bonuses=Bonuses(0, 0), points=120)
 wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", bonuses=Bonuses(0, 0), points=120)
@@ -568,7 +664,7 @@ def scores_to_ratio(score_a, score_b):
         return round(score_b / score_a, 2)
 
 
-assert (scores_to_ratio(1, 1) == 0.0)
+assert (scores_to_ratio(1, 1) == 1)
 assert (scores_to_ratio(1, 2) == 2.0)
 assert (scores_to_ratio(4, 2) == 2.0)
 
@@ -639,6 +735,7 @@ def compute_heatmap(weapon_a, weapon_b):
         ]
     res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in
                 score_a_score_b_tuples]
+
     res["ratios"] = [[scores_to_ratio(score_a, score_b) for score_a, score_b in line] for line in
                      score_a_score_b_tuples]
     print(res)
