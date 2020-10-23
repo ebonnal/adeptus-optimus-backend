@@ -54,11 +54,8 @@ def compare():
     print(f"Request processing took {time() - start_time} seconds")
     return response
 
-# Utils
-def assertParamsValidity(params):
-    return "bla" not in params["nameA"]
+# v3.0 SAG/Bolt Request processing took 57.40342354774475 seconds
 
-# Engine
 
 
 if __name__ == "__main__":

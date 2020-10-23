@@ -2,8 +2,6 @@ import random
 import re
 
 import math
-import scipy.special
-import scipy.special
 
 
 # Utils
@@ -480,7 +478,8 @@ def get_avg_of_density(d):
     return sum(l)
 
 
-assert (get_avg_of_density(get_attack_density(Weapon(hit="1", a="D3", s="1", ap="1", d="1"))) == 2)
+assert (get_avg_of_density({0: 0.2, 1: 0.5, 2: 0.3}) == 0.5 + 0.3 * 2)
+
 
 # V3
 
@@ -501,7 +500,8 @@ def get_wound_ratio(weapon, target):
     assert (isinstance(target, Target))
     wound_ratio = 0
     for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
-        wound_ratio += compute_successes_ratio(compute_necessary_wound_roll(s_roll, target.t) - weapon.bonuses.to_wound) * prob_s_roll
+        wound_ratio += compute_successes_ratio(
+            compute_necessary_wound_roll(s_roll, target.t) - weapon.bonuses.to_wound) * prob_s_roll
     return wound_ratio
 
 
@@ -534,13 +534,16 @@ wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", bonuses=Bonuses(0, 0), point
 tar = Target(t=4, sv=1, invu=5, fnp=6, w=16)
 assert (abs(score_weapon_on_target(wea, tar) / score_weapon_on_target(wea2, tar) - 1) <= 0.25)
 # S=2D6 triggers upper threshold effect on T=8 and is better than S=7, but not on other Toughnesses
-w1, w2 = Weapon("5", "10", "2D6", "1", "1", bonuses=Bonuses.empty()), Weapon("5", "10", "7", "1", "1", bonuses=Bonuses.empty())
+w1, w2 = Weapon("5", "10", "2D6", "1", "1", bonuses=Bonuses.empty()), Weapon("5", "10", "7", "1", "1",
+                                                                             bonuses=Bonuses.empty())
 t1 = Target(t=8, sv=6, invu=None, fnp=6, w=1)
 t2 = Target(t=7, sv=6, invu=None, fnp=6, w=1)
-assert(score_weapon_on_target(w1, t1) > 1.1 * score_weapon_on_target(w2, t1))
-assert(score_weapon_on_target(w1, t2) < 1.1 * score_weapon_on_target(w2, t2))
-w3, w4 = Weapon("5", "7", "2D6", "1", "1", bonuses=Bonuses.empty()), Weapon("5", "2D6", "2D6", "1", "1", bonuses=Bonuses.empty())
-assert(float_eq(score_weapon_on_target(w3, t1), score_weapon_on_target(w4, t1)))
+assert (score_weapon_on_target(w1, t1) > 1.1 * score_weapon_on_target(w2, t1))
+assert (score_weapon_on_target(w1, t2) < 1.1 * score_weapon_on_target(w2, t2))
+w3, w4 = Weapon("5", "7", "2D6", "1", "1", bonuses=Bonuses.empty()), Weapon("5", "2D6", "2D6", "1", "1",
+                                                                            bonuses=Bonuses.empty())
+assert (float_eq(score_weapon_on_target(w3, t1), score_weapon_on_target(w4, t1)))
+
 
 def scores_to_comparison_score(score_a, score_b):
     if score_a > score_b:
@@ -558,19 +561,16 @@ def y_dims_to_str(l):
     return f"""T:{l[0]}, W:{l[1]}, fnp:{"-" if l[2] is None else f"{l[2]}+"}"""
 
 
-def scores_to_label(score_a, score_b):
-    ratio = round(score_a / score_b, 2)
-    if ratio > 1:
-        return f"Weapon A should destroy {ratio} times more models per point than weapon B"
-    elif ratio < 1:
-        return f"Weapon B should destroy {round(score_b / score_a, 2)} times more models per point than weapon A"
+def scores_to_ratio(score_a, score_b):
+    if score_a > score_b:
+        return round(score_a / score_b, 2)
     else:
-        return "Weapon A and B should destroy the same number of models per point"
+        return round(score_b / score_a, 2)
 
 
-assert (scores_to_label(1, 1) == "Weapon A and B should destroy the same number of models per point")
-assert (scores_to_label(1, 2) == "Weapon B should destroy 2.0 times more models per point than weapon A")
-assert (scores_to_label(4, 2) == "Weapon A should destroy 2.0 times more models per point than weapon B")
+assert (scores_to_ratio(1, 1) == 0.0)
+assert (scores_to_ratio(1, 2) == 2.0)
+assert (scores_to_ratio(4, 2) == 2.0)
 
 
 def x_dims_to_str(l):
@@ -616,7 +616,7 @@ def compute_heatmap(weapon_a, weapon_b):
     # target independant
     avg_attack_a, avg_attack_b = weapon_a.a.avg, weapon_b.a.avg
     hit_ratio_a, hit_ratio_b = get_hit_ratio(weapon_a), get_hit_ratio(weapon_b)
-    
+
     score_a_score_b_tuples = \
         [
             [
@@ -639,7 +639,7 @@ def compute_heatmap(weapon_a, weapon_b):
         ]
     res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in
                 score_a_score_b_tuples]
-    res["labels"] = [[scores_to_label(score_a, score_b) for score_a, score_b in line] for line in
+    res["ratios"] = [[scores_to_ratio(score_a, score_b) for score_a, score_b in line] for line in
                      score_a_score_b_tuples]
     print(res)
 
