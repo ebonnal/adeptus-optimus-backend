@@ -30,7 +30,12 @@ def exact_avg_figs_fraction_slained_per_unsaved_wound(d, w):
 assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
 assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
 assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
-
+assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) ==
+        compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(3), None, 5))
+assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) ==
+        compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2))
+assert (float_eq(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16),
+        compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(6), None, 16), 0))
 
 
 # last step numeric averaging: damage roll + fnp
@@ -193,8 +198,8 @@ def score_weapon_on_target_legacy(w, t):
            w.points
 ## END LEGACY
 
-assert (score_weapon_on_target_legacy(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2))
-        == score_weapon_on_target(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)))
+assert (float_eq(score_weapon_on_target_legacy(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)),
+                 score_weapon_on_target(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)), 5))
 # Sv=1 : ignore PA -1
 wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", bonuses=Bonuses(0, 0), points=120)
 wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", bonuses=Bonuses(0, 0), points=120)

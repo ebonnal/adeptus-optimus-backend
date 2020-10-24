@@ -1,6 +1,5 @@
 from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr, float_eq, with_timer
-import enginev2
-verbose = False
+
 class State:
     def __init__(self,
                  n_unsaved_wounds_left,  # key field, 0 when resolved
@@ -34,16 +33,13 @@ class Cache:
 
     def add(self, state, cached_unweighted_downstream):
         key = Cache._keyify(state)
-        if verbose: print("add ", key)
         if self.dict.get(key, (0, 0))[0] < state.n_unsaved_wounds_left:
             self.dict[key] = (state.n_unsaved_wounds_left, cached_unweighted_downstream)
 
     def get(self, state):
-        if verbose: print("tries get ", Cache._keyify(state))
         res = self.dict.get(Cache._keyify(state), (None, None))
         self.tries += 1
         if res[0] != None:
-            if verbose: print("hit")
             self.hits += 1
         return res
 
@@ -72,7 +68,7 @@ class Node:
         self.parents_states = parents_states
         self.children_states = children_states
 
-
+# TODO: make all the sub triangle cached, not only the one going from node X to leafs: more cache hits
 def compute_slained_figs_frac(state_):
     assert (isinstance(state_, State))
     assert (state_.remaining_target_wounds >= 0)
@@ -135,14 +131,15 @@ def compute_slained_figs_frac(state_):
     return downstream_n_figs_slained_frac
 
 
-def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds, n_unsaved_wounds_init=40):
+def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds, n_unsaved_wounds_init=32):
     """
     n_unsaved_wounds_init=100: 57 sec
                            64: 38 sec, res prec +-0.01
-                           40:  sec, res prec +-0.0
+                           50: 22 sec, res prec +-0.02
+                           40: 23 sec, res prec +-0.015
                            32: 18 sec, res prec +-0.02
+                           16: 10 sec, res prec +-0.05
     """
-    if verbose: print("compute_slained_figs_frac_wrapper called")
     Node.weapon_d = weapon_d
     Node.target_wounds = target_wounds
     Node.n_unsaved_wounds_init = n_unsaved_wounds_init
@@ -158,38 +155,25 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
         remaining_target_wounds=target_wounds,
         prob_node=1)) / Node.n_unsaved_wounds_init
 
-# n_unsaved_wounds_init=10: (3044, 3070)
-print(with_timer(lambda :enginev2.compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1,3), 4, 3, n_unsaved_wounds_init=5)))
-
-print(with_timer(lambda :compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1,6), 4, 10, n_unsaved_wounds_init=100)))
-print(Node.cache.dict)
-print(Node.cache)
-
-print(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0)
 
 
 
+# FNP
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 5, 1), 4 / 6, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 4, 1), 0.5, 0))
+# on W=2
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), None, 2), 0.5, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2), 1, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0))
+# random doms
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), None, 35), 0.1, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(
+    DiceExpr(1, 6), 4, 175), 0.01, 0)
+)
 
-
-# # FNP
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 5, 1), 4 / 6, 0))
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 4, 1), 0.5, 0))
-# # on W=2
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), None, 2), 0.5, 0))
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2), 1, 0))
-# print(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0)
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0))
-# # random doms
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), None, 35), 0.1, 0))
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(
-#     DiceExpr(1, 6), 4, 70, n_unsaved_wounds_init=32,), 0.025, 0)
-# )
-#
-# print(compute_slained_figs_ratios_per_unsaved_wound(
-#     DiceExpr(1,3), None, 10, n_unsaved_wounds_init=150))
-# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(
-#     DiceExpr(1, 6), 5, 70, n_unsaved_wounds_init=70), 2/3*3.5/70, 0)
-# )
-#
-# # TODO: assert compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6, n_unsaved_wounds_init=101) == 0.5
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(
+    DiceExpr(1, 6), 5, 70, n_unsaved_wounds_init=70), 2/3*3.5/70, 0)
+)
+# lost damages
+assert(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6, n_unsaved_wounds_init=33), 0.5, 0))
