@@ -144,9 +144,11 @@ assert (parse_roll("7+") is None)
 assert (parse_roll("3") is None)
 
 
-def float_eq(a, b, n_same_decimals=4):
+def float_eq(a, b, n_same_decimals=4, verbose = False):
+    if verbose: print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
     return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
 
+# assert(float_eq(0.025, 0.0249, 0))  # TODO: make it pass
 
 assert (float_eq(1, 1.01, 1))
 assert (float_eq(0.3333, 0.3334, 2))
@@ -209,11 +211,12 @@ Bonuses.empty().to_hit = 0
 
 class Weapon:
     def __init__(self, hit, a, s, ap, d, bonuses=Bonuses.empty(), points=1):
-        self.hit = parse_dice_expr(hit, raise_on_failure=True)
-        self.a = parse_dice_expr(a, raise_on_failure=True)
-        self.s = parse_dice_expr(s, raise_on_failure=True)
-        self.ap = parse_dice_expr(ap, raise_on_failure=True)
-        self.d = parse_dice_expr(d, complexity_threshold=6, raise_on_failure=True)
+        # prob by roll result: O(n*dice_type)
+        self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True) # only one time O(n*dice_type)
+        self.a = parse_dice_expr(a, complexity_threshold=64, raise_on_failure=True)  # only one time 0(n)
+        self.s = parse_dice_expr(s, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
+        self.ap = parse_dice_expr(ap, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
+        self.d = parse_dice_expr(d, complexity_threshold=6, raise_on_failure=True)  # exponential exponential compl
 
         self.bonuses = bonuses
 
@@ -421,10 +424,25 @@ def update_slained_figs_ratios(n_unsaved_wounds_left,
 
 
 def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds,
-                                                  n_unsaved_wounds_init=5,
-                                                  prob_min_until_cut=0.0001):
+                                                  n_unsaved_wounds_init=None,
+                                                  prob_min_until_cut=0):
+
+
     n_figs_slained_weighted_ratios = []
     fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
+
+    if n_unsaved_wounds_init is None:
+        if fnp_fail_ratio == 1:
+            if weapon_d.dices_type is None:
+                n_unsaved_wounds_init = 5
+            else:
+                n_unsaved_wounds_init = 5
+        else:
+            if weapon_d.dices_type is None:
+                n_unsaved_wounds_init = 3
+            else:
+                n_unsaved_wounds_init = 2
+
     start_target_wounds = target_wounds
     update_slained_figs_ratios(
         n_unsaved_wounds_left=n_unsaved_wounds_init,
@@ -439,7 +457,7 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
         n_unsaved_wounds_init=n_unsaved_wounds_init,
         prob_min_until_cut=prob_min_until_cut,
         current_wound_init_n_damages=0)
-    print(f"{len(n_figs_slained_weighted_ratios)} leafs by single tree, for depth={n_unsaved_wounds_init}")
+    # print(f"{len(n_figs_slained_weighted_ratios)} leafs by single tree, for depth={n_unsaved_wounds_init}")
     # return sum(map(lambda tup: tup[0] * tup[1], n_figs_slained_weighted_ratios))/1
     return sum(n_figs_slained_weighted_ratios)
 
@@ -620,10 +638,8 @@ def score_weapon_on_target_legacy(w, t):
            w.points
 ## END LEGACY
 
-print(
-    score_weapon_on_target_legacy(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)),
-    score_weapon_on_target(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)),
-)
+assert (score_weapon_on_target_legacy(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2))
+        == score_weapon_on_target(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)))
 # Sv=1 : ignore PA -1
 wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", bonuses=Bonuses(0, 0), points=120)
 wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", bonuses=Bonuses(0, 0), points=120)
