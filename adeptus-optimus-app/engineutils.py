@@ -1,7 +1,16 @@
 import re
 import random
 
+import time
+
 # Utils
+def with_timer(func):
+    start = time.time()
+    res = func()
+    print(f"Took {(time.time() - start)*1000} ms")
+    return res
+
+
 def map_7_to_None(v):
     return None if v == 7 else v
 

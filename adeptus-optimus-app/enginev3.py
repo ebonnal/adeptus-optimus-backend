@@ -1,5 +1,5 @@
-from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr
-
+from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr, float_eq, with_timer
+import enginev2
 verbose = False
 class State:
     def __init__(self,
@@ -29,6 +29,9 @@ class Cache:
         self.hits = 0
         self.tries = 0
 
+    def __str__(self):
+        return f"tries={self.tries}, hits={self.hits}, misses={self.tries-self.hits}"
+
     def add(self, state, cached_unweighted_downstream):
         key = Cache._keyify(state)
         if verbose: print("add ", key)
@@ -52,7 +55,7 @@ class Cache:
 
     @staticmethod
     def _keyify(state):
-        return f"dmgs_left:{state.current_wound_n_damages_left},rem_t_ws:{state.remaining_target_wounds}"
+        return f"{state.current_wound_n_damages_left},{state.remaining_target_wounds},{state.n_unsaved_wounds_left}"
 
 
 class Node:
@@ -82,28 +85,22 @@ def compute_slained_figs_frac(state_):
     # resolve a model kill
     if state.remaining_target_wounds == 0:
         state.remaining_target_wounds = Node.target_wounds
-        state.n_figs_slained_so_far += 1
         # additionnal damages are not propagated to other models
         state.current_wound_n_damages_left = 0
-        return compute_slained_figs_frac(state)
+        return compute_slained_figs_frac(state) + state.prob_node * 1  # upstream propagation of figs slained count
 
-    if verbose: print("state.n_figs_slained_so_far",  state.n_figs_slained_so_far)
     # test cache
     cached_res_n_unsaved_wounds_left, cached_downstream_n_figs_slained_frac = Node.cache.get(state)
     if cached_downstream_n_figs_slained_frac is not None and cached_res_n_unsaved_wounds_left >= state.n_unsaved_wounds_left:
         # use cached res if deep enough
-        return state.prob_node * (state.n_figs_slained_so_far + cached_downstream_n_figs_slained_frac)
+        return state.prob_node * cached_downstream_n_figs_slained_frac
 
     # leaf: no more damages to fnp no more wounds to consume or p(leaf) < threshold
     if state.n_unsaved_wounds_left == 0 and state.current_wound_n_damages_left == 0:
-        n_figs_slained_frac = (state.n_figs_slained_so_far +
-                               # portion of the first model cleaned
-                               (-1 + Node.start_target_wounds / Node.target_wounds) +
-                               # portion of the last model injured
-                               (1 - state.remaining_target_wounds / Node.target_wounds))
-        if verbose: print("leaf n_figs_slained_frac=", n_figs_slained_frac, ", n_figs_slained_so_far=", state.n_figs_slained_so_far)
-        Node.cache.add(state, n_figs_slained_frac)
-        return state.prob_node * n_figs_slained_frac
+        # portion of the last model injured
+        last_model_injured_frac = 1 - state.remaining_target_wounds / Node.target_wounds
+        Node.cache.add(state, last_model_injured_frac)
+        return state.prob_node * last_model_injured_frac
 
     # consume a wound
 
@@ -138,8 +135,13 @@ def compute_slained_figs_frac(state_):
     return downstream_n_figs_slained_frac
 
 
-def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds,
-                                      n_unsaved_wounds_init=5):
+def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds, n_unsaved_wounds_init=40):
+    """
+    n_unsaved_wounds_init=100: 57 sec
+                           64: 38 sec, res prec +-0.01
+                           40:  sec, res prec +-0.0
+                           32: 18 sec, res prec +-0.02
+    """
     if verbose: print("compute_slained_figs_frac_wrapper called")
     Node.weapon_d = weapon_d
     Node.target_wounds = target_wounds
@@ -157,9 +159,37 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
         prob_node=1)) / Node.n_unsaved_wounds_init
 
 # n_unsaved_wounds_init=10: (3044, 3070)
-print(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 3), target_fnp=None, target_wounds=1, n_unsaved_wounds_init=200), 5 / 6)
+print(with_timer(lambda :enginev2.compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1,3), 4, 3, n_unsaved_wounds_init=5)))
+
+print(with_timer(lambda :compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1,6), 4, 10, n_unsaved_wounds_init=100)))
 print(Node.cache.dict)
-print(Node.cache.hits, Node.cache.tries)
+print(Node.cache)
 
 print(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0)
 
+
+
+
+
+# # FNP
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 5, 1), 4 / 6, 0))
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 4, 1), 0.5, 0))
+# # on W=2
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), None, 2), 0.5, 0))
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2), 1, 0))
+# print(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0)
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0))
+# # random doms
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), None, 35), 0.1, 0))
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(
+#     DiceExpr(1, 6), 4, 70, n_unsaved_wounds_init=32,), 0.025, 0)
+# )
+#
+# print(compute_slained_figs_ratios_per_unsaved_wound(
+#     DiceExpr(1,3), None, 10, n_unsaved_wounds_init=150))
+# assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(
+#     DiceExpr(1, 6), 5, 70, n_unsaved_wounds_init=70), 2/3*3.5/70, 0)
+# )
+#
+# # TODO: assert compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6, n_unsaved_wounds_init=101) == 0.5

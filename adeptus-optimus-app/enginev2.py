@@ -1,4 +1,4 @@
-from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr
+from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr, float_eq
 
 def update_slained_figs_ratios(n_unsaved_wounds_left,
                                current_wound_n_damages_left,
@@ -152,3 +152,19 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
     # print(f"{len(n_figs_slained_weighted_ratios)} leafs by single tree, for depth={n_unsaved_wounds_init}")
     # return sum(map(lambda tup: tup[0] * tup[1], n_figs_slained_weighted_ratios))/1
     return sum(n_figs_slained_weighted_ratios)
+
+
+# FNP
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 5, 1), 4 / 6, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 4, 1), 0.5, 0))
+# on W=2
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), None, 2), 0.5, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2), 1, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0))
+# random doms
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), None, 35), 0.1, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), 4, 70, n_unsaved_wounds_init=32,
+                                                               prob_min_until_cut=0.0001), 0.025, 0))
+assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), 5, 70, n_unsaved_wounds_init=32,
+                                                               prob_min_until_cut=0.0001), 2 / 60, 0))
