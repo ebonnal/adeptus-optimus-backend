@@ -7,7 +7,9 @@ from time import time
 from flask import Flask
 from flask import request
 
-from engine import Weapon, compute_heatmap, require, RequirementFailError, Bonuses
+from engineutils import Weapon, require, RequirementFailError, Bonuses
+from enginecore import compute_heatmap
+
 
 # Flask
 app = Flask(__name__)
