@@ -139,6 +139,7 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
                            40: 23 sec, res prec +-0.015
                            32: 18 sec, res prec +-0.02
                            16: 10 sec, res prec +-0.05
+                           8: 5.8 sec, res prec +-0.2
     """
     Node.weapon_d = weapon_d
     Node.target_wounds = target_wounds
