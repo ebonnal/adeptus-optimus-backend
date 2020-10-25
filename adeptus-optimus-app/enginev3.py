@@ -1,4 +1,4 @@
-from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr, float_eq, with_timer
+from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr, float_eq
 
 
 class State:
@@ -65,6 +65,7 @@ class Node:
         self.state = state
         self.parents_states = parents_states
         self.children_states = children_states
+
 
 def compute_slained_figs_frac(state_):
     assert (isinstance(state_, State))
@@ -149,6 +150,7 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
         current_wound_n_damages_left=0,
         n_figs_slained_so_far=0,
         remaining_target_wounds=target_wounds)) / Node.n_unsaved_wounds_init
+
 
 # FNP
 assert (float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))

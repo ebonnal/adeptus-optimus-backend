@@ -1,13 +1,14 @@
-import re
 import random
+import re
 
 import time
+
 
 # Utils
 def with_timer(func):
     start = time.time()
     res = func()
-    print(f"Took {(time.time() - start)*1000} ms")
+    print(f"Took {(time.time() - start) * 1000} ms")
     return res
 
 
@@ -149,9 +150,10 @@ assert (parse_roll("7+") is None)
 assert (parse_roll("3") is None)
 
 
-def float_eq(a, b, n_same_decimals=4, verbose = False):
+def float_eq(a, b, n_same_decimals=4, verbose=False):
     if verbose: print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
     return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
+
 
 # assert(float_eq(0.025, 0.0249, 0))  # TODO: make it pass
 
@@ -217,7 +219,7 @@ Bonuses.empty().to_hit = 0
 class Weapon:
     def __init__(self, hit, a, s, ap, d, bonuses=Bonuses.empty(), points=1):
         # prob by roll result: O(n*dice_type)
-        self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True) # only one time O(n*dice_type)
+        self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
         self.a = parse_dice_expr(a, complexity_threshold=64, raise_on_failure=True)  # only one time 0(n)
         self.s = parse_dice_expr(s, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
         self.ap = parse_dice_expr(ap, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)

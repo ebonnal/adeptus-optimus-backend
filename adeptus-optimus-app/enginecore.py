@@ -1,12 +1,8 @@
-import random
-import re
-
 import math
 
 import scipy.special
 from engineutils import *
 from enginev3 import compute_slained_figs_ratios_per_unsaved_wound
-
 
 
 # Engine v2
@@ -22,7 +18,6 @@ def dispatch_density_key(previous_density_key, next_density_prob):
 assert (dispatch_density_key(3, 0.5) == {0: 0.125, 1: 0.375, 2: 0.375, 3: 0.125})
 
 
-
 def exact_avg_figs_fraction_slained_per_unsaved_wound(d, w):
     return 1 / math.ceil(w / d)
 
@@ -35,7 +30,7 @@ assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) ==
 assert (exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) ==
         compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2))
 assert (float_eq(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16),
-        compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(6), None, 16), 0))
+                 compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(6), None, 16), 0))
 
 
 # last step numeric averaging: damage roll + fnp
@@ -79,7 +74,7 @@ def get_hit_ratio(weapon):
     assert (isinstance(weapon, Weapon))
     hit_ratio = 0
     for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
-        hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.bonuses.to_wound)
+        hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.bonuses.to_hit)
     return hit_ratio
 
 
@@ -117,6 +112,7 @@ def score_weapon_on_target(w, t, avg_n_attacks=None, hit_ratio=None):
     hit_ratio = get_hit_ratio(w) if hit_ratio is None else hit_ratio
     return avg_n_attacks * hit_ratio * get_wound_ratio(w, t) * get_unsaved_wound_ratio(w, t) \
            * get_avg_figs_fraction_slained_per_unsaved_wound(w, t) / w.points
+
 
 ## LEGACY
 
@@ -196,10 +192,15 @@ def score_weapon_on_target_legacy(w, t):
            uw_d[1] * \
            get_avg_of_density(get_attack_density(w)) / \
            w.points
+
+
 ## END LEGACY
 
-assert (float_eq(score_weapon_on_target_legacy(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)),
-                 score_weapon_on_target(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()), Target(t=8, sv=4, invu=6, fnp=5, w=2)), 5))
+assert (float_eq(score_weapon_on_target_legacy(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()),
+                                               Target(t=8, sv=4, invu=6, fnp=5, w=2)),
+                 score_weapon_on_target(Weapon("D6", "D6", "D6", "D6", "D6", bonuses=Bonuses.empty()),
+                                        Target(t=8, sv=4, invu=6, fnp=5, w=2)), 5))
+
 # Sv=1 : ignore PA -1
 wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", bonuses=Bonuses(0, 0), points=120)
 wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", bonuses=Bonuses(0, 0), points=120)
@@ -215,6 +216,13 @@ assert (score_weapon_on_target(w1, t2) < 1.1 * score_weapon_on_target(w2, t2))
 w3, w4 = Weapon("5", "7", "2D6", "1", "1", bonuses=Bonuses.empty()), Weapon("5", "2D6", "2D6", "1", "1",
                                                                             bonuses=Bonuses.empty())
 assert (float_eq(score_weapon_on_target(w3, t1), score_weapon_on_target(w4, t1)))
+
+# Bonuses
+t = Target(t=4, sv=5, invu=None, fnp=6, w=6)
+assert (score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", bonuses=Bonuses(0, 0)), t) ==
+        score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", bonuses=Bonuses(1, 0)), t))
+assert (score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", bonuses=Bonuses(0, 0)), t) ==
+        score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", bonuses=Bonuses(0, 1)), t))
 
 
 def scores_to_comparison_score(score_a, score_b):
