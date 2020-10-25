@@ -1,4 +1,4 @@
-from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr, float_eq
+from engineutils import prob_by_roll_result, compute_successes_ratio, DiceExpr, float_eq, with_timer
 
 
 class State:
@@ -124,10 +124,12 @@ def compute_slained_figs_frac(state_):
         return [last_model_injured_frac]
     else:
         # test cache
+        #cached_downstream = None
         cached_downstream = Node.cache.get(state)
         if cached_downstream is not None and state.n_unsaved_wounds_left < len(cached_downstream):
             # use cached res if deep enough
             relevant_cached_downstream = cached_downstream[len(cached_downstream) - state.n_unsaved_wounds_left - 1:]
+            #relevant_cached_downstream = cached_downstream[0:state.n_unsaved_wounds_left+1]
             return relevant_cached_downstream
         else:
             if state.current_wound_n_damages_left == 0:
@@ -197,11 +199,11 @@ def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_w
         remaining_target_wounds=target_wounds))[0] / Node.n_unsaved_wounds_init
 
 import enginev2, enginev3legacy
-print(enginev2.compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 3), 6, 6, n_unsaved_wounds_init=4))
-print(enginev3legacy.compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 3), 6, 6, n_unsaved_wounds_init=4))
+print(with_timer(lambda: enginev2.compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 3), 6, 5, n_unsaved_wounds_init=3)))
+print(with_timer(lambda: enginev3legacy.compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1,3), 6, 5, n_unsaved_wounds_init=3)))
 print(enginev3legacy.Node.cache)
 print(enginev3legacy.Node.cache.dict)
-print(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 3), 6, 6, n_unsaved_wounds_init=4))
+print(with_timer(lambda: compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1,3), 6, 5, n_unsaved_wounds_init=3)))
 print(Node.cache)
 print(Node.cache.dict)
 exit(0)
