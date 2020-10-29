@@ -4,7 +4,6 @@ import re
 import time
 
 
-# Utils
 def with_timer(func):
     start = time.time()
     res = func()
@@ -25,30 +24,6 @@ def require(predicate, error_message):
         raise RequirementFailError(error_message)
 
 
-require(True, "bla")
-
-thrown_message = ""
-try:
-    require(False, "bla")
-except RequirementFailError as e:
-    thrown_message = str(e)
-assert (thrown_message == "bla")
-
-
-def roll_D6():
-    return random.randint(1, 6)
-
-
-assert (len({roll_D6() for _ in range(1000)}) == 6)
-
-
-def roll_D3():
-    return (random.randint(1, 6) + 1) // 2
-
-
-assert (len({roll_D3() for _ in range(1000)}) == 3)
-
-
 class DiceExpr:
     def __init__(self, n, dices_type=None):
         self.n = n
@@ -59,32 +34,11 @@ class DiceExpr:
         else:
             self.avg = n * (self.dices_type + 1) / 2
 
-    def roll(self):
-        if self.dices_type is None:
-            return self.n
-        else:
-            if self.dices_type == 3:
-                return sum([roll_D3() for _ in range(self.n)])
-            elif self.dices_type == 6:
-                return sum([roll_D6() for _ in range(self.n)])
-            else:
-                raise AttributeError(f"Unsupported dices_type D{self.dices_type}")
-
     def __str__(self):
         if self.dices_type is None:
             return str(self.n)
         else:
             return f"{self.n if self.n > 1 else ''}D{self.dices_type}"
-
-
-assert (str(DiceExpr(5, 3)) == "5D3")
-assert (str(DiceExpr(1, 6)) == "D6")
-assert (str(DiceExpr(10, None)) == "10")
-
-dice_5D3 = DiceExpr(5, 3)
-assert (len({dice_5D3.roll() for _ in range(10000)}) == 5 * 3 - 5 + 1)
-dice_4D6 = DiceExpr(4, 6)
-assert (len({dice_4D6.roll() for _ in range(10000)}) == 4 * 6 - 4 + 1)
 
 
 def parse_dice_expr(d, complexity_threshold=16, raise_on_failure=False):
@@ -121,18 +75,6 @@ def parse_dice_expr(d, complexity_threshold=16, raise_on_failure=False):
         return res
 
 
-assert (parse_dice_expr("4D3").avg == 8)
-assert (parse_dice_expr("5").avg == 5)
-assert (parse_dice_expr("D7") is None)
-assert (parse_dice_expr("0D6") is None)
-assert (parse_dice_expr("0").avg == 0)
-assert (parse_dice_expr("7D6") is None)
-assert (parse_dice_expr("D3").avg == 2)
-assert (parse_dice_expr("3D3").avg == 6)
-assert (parse_dice_expr("D6").avg == 3.5)
-assert (parse_dice_expr("1D6") is None)
-
-
 def parse_roll(roll):
     res = re.fullmatch(r"([23456])\+", roll)
     if res is None:
@@ -141,27 +83,9 @@ def parse_roll(roll):
         return int(res.group(1))
 
 
-assert (parse_roll("1+") is None)
-assert (parse_roll("1+") is None)
-assert (parse_roll("2+") == 2)
-assert (parse_roll("3+") == 3)
-assert (parse_roll("6+") == 6)
-assert (parse_roll("7+") is None)
-assert (parse_roll("3") is None)
-
-
 def float_eq(a, b, n_same_decimals=4, verbose=False):
     if verbose: print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
     return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
-
-
-# assert(float_eq(0.025, 0.0249, 0))  # TODO: make it pass
-
-assert (float_eq(1, 1.01, 1))
-assert (float_eq(0.3333, 0.3334, 2))
-assert (float_eq(0.03333, 0.03334, 2))
-assert (not float_eq(0.3333, 0.334, 2))
-assert (not float_eq(0.03333, 0.0334, 2))
 
 
 def prob_by_roll_result(dice_expr):
@@ -236,9 +160,6 @@ class Weapon:
         require(self.points is not None and self.points > 0, f"Invalid points value: '{points}'")
 
 
-Weapon(hit="5", a="2", s="4D3", ap="1", d="D3", bonuses=Bonuses.empty())
-
-
 class Target:
     def __init__(self, t, sv, invu=None, fnp=None, w=1):
         assert (invu is None or (type(invu) is int and invu > 0 and invu <= 6))
@@ -256,15 +177,6 @@ class Target:
         assert (type(w) is int and w > 0)
         self.w = w
 
-
-Target(8, 3, 5, 6)
-Target(8, 3)
-
-
-# In[229]:
-
-
-# Engine v1
 
 def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True):
     necessary_roll = modified_necessary_roll
@@ -290,3 +202,25 @@ def compute_necessary_wound_roll(f, e):
     else:
         assert (f < e)
         return 5
+
+
+def get_avg_of_density(d):
+    l = [float(v) * float(p) for v, p in d.items()]
+    return sum(l)
+
+
+try:
+    # python version >= 3.8
+    from math import comb
+except:
+    # fallback requiring scipy
+    from scipy.special import comb
+
+
+def dispatch_density_key(previous_density_key, next_density_prob):
+    assert (type(previous_density_key) is int)
+    assert (previous_density_key >= 0)
+    assert (0 < next_density_prob and next_density_prob <= 1)
+    n = previous_density_key
+    p = next_density_prob
+    return {k: comb(n, k) * p ** k * (1 - p) ** (n - k) for k in range(0, n + 1)}

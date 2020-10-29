@@ -1,20 +1,11 @@
-import os
-import subprocess
 import json
 from time import time
 
-# TODO: log on GCS each duration and parameters and id/token
-from flask import Flask
-from flask import request
-
-from engineutils import Weapon, require, RequirementFailError, Bonuses
-from enginecore import compute_heatmap
+from .utils import Weapon, RequirementFailError
+from .engine_core import compute_heatmap
 
 
-# Flask
-app = Flask(__name__)
-
-
+# TODO use a list of weapon's params for each profile
 def parse_weapons(params):
     weapon_a = Weapon(
         hit=params["WSBSA"],
@@ -36,8 +27,8 @@ def parse_weapons(params):
 
     return weapon_a, weapon_b
 
-@app.route('/engine/', methods=['GET'])
-def compare():
+
+def run(request):
     start_time = time()
     try:
         params = request.args.get('params')
@@ -55,11 +46,3 @@ def compare():
         response = {"msg": f"{type(e)}: {str(e)}"}, 500
     print(f"Request processing took {time() - start_time} seconds")
     return response
-
-# v3.0 SAG/Bolt Request processing took 57.40342354774475 seconds
-
-
-
-if __name__ == "__main__":
-    os.environ["FLASK_APP"] = "app.py"
-    subprocess.call(["python3", "-m", "flask", "run"])
