@@ -28,7 +28,7 @@ def parse_weapons(params):
     return weapon_a, weapon_b
 
 
-def run(request):
+def compare(request):
     start_time = time()
     try:
         params = request.args.get('params')
