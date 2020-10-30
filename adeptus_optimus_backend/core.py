@@ -164,7 +164,7 @@ def compute_slained_figs_frac(state_):
                 return downstream
 
 
-def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds, n_unsaved_wounds_init=32):
+def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds, n_unsaved_wounds_init=10):
     """
     n_unsaved_wounds_init=32: 14 sec, res prec +-0.02
     """

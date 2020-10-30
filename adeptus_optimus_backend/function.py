@@ -2,7 +2,7 @@ import json
 from time import time
 
 from .utils import Weapon, RequirementFailError
-from .engine_core import compute_heatmap
+from .core import compute_heatmap
 
 
 # TODO use a list of weapon's params for each profile
