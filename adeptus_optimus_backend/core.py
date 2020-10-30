@@ -166,7 +166,8 @@ def compute_slained_figs_frac(state_):
 
 def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds, n_unsaved_wounds_init=10):
     """
-    n_unsaved_wounds_init=32: 14 sec, res prec +-0.02
+    n_unsaved_wounds_init=32: 14 sec, res prec +-0.02 compared to 64
+    n_unsaved_wounds_init=32:  5 sec, res prec +-0.1  compared to 64
     """
     State.weapon_d = weapon_d
     State.target_wounds = target_wounds
