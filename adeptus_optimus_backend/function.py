@@ -1,31 +1,32 @@
 import json
+import traceback
 from time import time
 
-from .utils import Weapon, RequirementFailError
-from .core import compute_heatmap
+from .utils import RequirementFailError
+from .core import compute_heatmap, Profile, Weapon
 
 
-# TODO use a list of weapon's params for each profile
-def parse_weapons(params):
-    weapon_a = Weapon(
-        hit=params["WSBSA"],
-        a=params["AA"],
-        s=params["SA"],
-        ap=params["APA"],
-        d=params["DA"],
-        points=params["pointsA"]
-    )
+def parse_profile(letter, params):
+    present_indexes = set()
+    params_keys = params.keys()
+    for index in range(10):
+        for key in params_keys:
+            if f"{letter}{index}" in key:
+                present_indexes.add(index)
 
-    weapon_b = Weapon(
-        hit=params["WSBSB"],
-        a=params["AB"],
-        s=params["SB"],
-        ap=params["APB"],
-        d=params["DB"],
-        points=params["pointsB"]
-    )
+    return Profile([
+        Weapon(
+            hit=params.get(f"WSBS{letter}{index}", "0"),
+            a=params.get(f"A{letter}{index}", "0"),
+            s=params.get(f"S{letter}{index}", "0"),
+            ap=params.get(f"AP{letter}{index}", "0"),
+            d=params.get(f"D{letter}{index}", "0"))
+        for index in present_indexes], params[f"points{letter}"])
 
-    return weapon_a, weapon_b
+def parse_params(params):
+    profile_a, profile_b = parse_profile("A", params), parse_profile("B", params)
+    print(f"Parsed {len(profile_a.weapons)} weapons for profile A and {len(profile_b.weapons)} for profile B.")
+    return profile_a, profile_b
 
 
 def compare(request):
@@ -38,11 +39,11 @@ def compare(request):
         else:
             print("Empty props received")
         try:
-            response = compute_heatmap(*parse_weapons(params)), 200
+            response = compute_heatmap(*parse_params(params)), 200
         except RequirementFailError as e:
             response = {"msg": f"Bad input: {e}"}, 422
     except Exception as e:
-        print(e, e.__traceback__)
-        response = {"msg": f"{type(e)}: {str(e)}"}, 500
+        traceback.print_exc()
+        response = {"msg": f"{type(e)}: {e}"}, 500
     print(f"Request processing took {time() - start_time} seconds")
     return response

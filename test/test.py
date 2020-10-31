@@ -46,8 +46,8 @@ class Test(unittest.TestCase):
             Target(t=8, sv=6, invu=None, fnp=6, w=1)
         ))
         self.assertTrue(get_avg_of_density({0: 0.2, 1: 0.5, 2: 0.3}) == 0.5 + 0.3 * 2)
-        wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", bonuses=Bonuses(0, 0), points=120)
-        wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", bonuses=Bonuses(0, 0), points=120)
+        wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", bonuses=Bonuses(0, 0))
+        wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", bonuses=Bonuses(0, 0))
         tar = Target(t=4, sv=1, invu=5, fnp=6, w=16)
         self.assertTrue(abs(score_weapon_on_target(wea, tar) / score_weapon_on_target(wea2, tar) - 1) <= 0.25)
         # S=2D6 triggers upper threshold effect on T=8 and is better than S=7, but not on other Toughnesses
@@ -109,3 +109,11 @@ class Test(unittest.TestCase):
         self.assertTrue(float_eq(0.03333, 0.03334, 2))
         self.assertTrue(not float_eq(0.3333, 0.334, 2))
         self.assertTrue(not float_eq(0.03333, 0.0334, 2))
+
+        self.assertTrue(prob_by_roll_result(parse_dice_expr("D3")) == {1: 1 / 3, 2: 1 / 3, 3: 1 / 3})
+        self.assertTrue(prob_by_roll_result(parse_dice_expr("7")) == {7: 1})
+        self.assertTrue(float_eq(1, sum(prob_by_roll_result(parse_dice_expr("2D6")).values())))
+        self.assertTrue(
+            prob_by_roll_result(parse_dice_expr("2D6")) == {2: 1 / 36, 3: 2 / 36, 4: 3 / 36, 5: 4 / 36, 6: 5 / 36,
+                                                            7: 6 / 36, 8: 5 / 36, 9: 4 / 36, 10: 3 / 36, 11: 2 / 36,
+                                                            12: 1 / 36})
