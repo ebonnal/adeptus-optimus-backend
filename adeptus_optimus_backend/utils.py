@@ -144,11 +144,14 @@ class Weapon:
     def __init__(self, hit, a, s, ap, d, bonuses=Bonuses.empty(), points=1):
         # prob by roll result: O(n*dice_type)
         self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
+        require(self.hit.avg > 1, "Balistic/Weapon Skill cannot be <= 1")
         self.a = parse_dice_expr(a, complexity_threshold=64, raise_on_failure=True)  # only one time 0(n)
+        require(self.a.avg != 0, "Number of Attacks cannot be 0")
         self.s = parse_dice_expr(s, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
+        require(self.s.avg != 0, "Strength cannot be 0")
         self.ap = parse_dice_expr(ap, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
         self.d = parse_dice_expr(d, complexity_threshold=6, raise_on_failure=True)  # exponential exponential compl
-
+        require(self.d.avg != 0, "Damage cannot be 0")
         self.bonuses = bonuses
 
         try:
