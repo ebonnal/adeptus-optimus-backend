@@ -66,7 +66,7 @@ class Weapon:
 
 
 class Target:
-    def __init__(self, t, sv, invu=None, fnp=None, w=1):
+    def __init__(self, t, sv=6, invu=None, fnp=None, w=1):
         assert (invu is None or (type(invu) is int and invu > 0 and invu <= 6))
         self.invu = invu
 

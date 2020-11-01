@@ -75,6 +75,21 @@ class Test(unittest.TestCase):
         self.assertTrue(
             score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, -1)), t) ==
             score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 0)), t))
+        # assert six is always a success to hit or wound
+        self.assertEqual(
+            get_hit_ratio(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
+            get_hit_ratio(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(-1, 0))))
+        self.assertEqual(
+            get_wound_ratio(Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(0, 0)), Target(4)),
+            get_wound_ratio(Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(0, -1)), Target(4)))
+        # assert 1 is always a failure to hit or wound
+        self.assertEqual(
+            get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
+            get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(+1, 0))))
+        self.assertEqual(
+            get_wound_ratio(Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(0, 0)), Target(4)),
+            get_wound_ratio(Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(0, +1)), Target(4)))
+
         self.assertTrue(scores_to_comparison_score(10000, 1) == 0.9999)
         self.assertTrue(scores_to_comparison_score(1, 10000) == -0.9999)
         self.assertTrue(scores_to_comparison_score(1, 1) == 0)
