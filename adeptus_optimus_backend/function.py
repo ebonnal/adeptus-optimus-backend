@@ -32,6 +32,29 @@ def parse_params(params):
 
 
 def compare(request):
+    # see https://cloud.google.com/functions/docs/writing/http?hl=fr#functions_http_cors-python
+    # For more information about CORS and CORS preflight requests, see
+    # https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request
+    # for more information.
+
+    # Set CORS headers for the preflight request
+    if request.method == 'OPTIONS':
+        # Allows GET requests from any origin with the Content-Type
+        # header and caches preflight response for an 3600s
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600'
+        }
+
+        return '', 204, headers
+
+    # Set CORS headers for the main request
+    headers = {
+        'Access-Control-Allow-Origin': '*'
+    }
+
     start_time = time()
     try:
         params = request.args.get('params')
@@ -41,11 +64,11 @@ def compare(request):
         else:
             print("Empty props received")
         try:
-            response = compute_heatmap(*parse_params(params)), 200
+            response = compute_heatmap(*parse_params(params)), 200, headers
         except RequirementFailError as e:
-            response = {"msg": f"Bad input: {e}"}, 422
+            response = {"msg": f"Bad input: {e}"}, 422, headers
     except Exception as e:
         traceback.print_exc()
-        response = {"msg": f"{type(e)}: {e}"}, 500
+        response = {"msg": f"{type(e)}: {e}"}, 500, headers
     print(f"Request processing took {time() - start_time} seconds")
     return response
