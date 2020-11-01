@@ -23,6 +23,7 @@ def parse_profile(letter, params):
             d=params.get(f"D{letter}{index}", "0"))
         for index in present_indexes], params[f"points{letter}"])
 
+
 def parse_params(params):
     profile_a, profile_b = parse_profile("A", params), parse_profile("B", params)
     print(f"Parsed {len(profile_a.weapons)} weapons for profile A and {len(profile_b.weapons)} for profile B.")

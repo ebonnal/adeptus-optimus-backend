@@ -346,28 +346,34 @@ def compute_heatmap(profile_a, profile_b):
     res["x"] = list(map(x_dims_to_str, svs))
 
     # target independant
-
-    score_a_score_b_tuples = \
+    res["scores"] = \
         [
             [
-                (
-                    sum([score_weapon_on_target(
+                [
+                    [score_weapon_on_target(
                         weapon_a,
                         Target(t, sv, invu=invu, fnp=fnp, w=w),
                         weapon_a.avg_attack,
                         weapon_a.hit_ratio
-                    ) for weapon_a in profile_a.weapons]) / profile_a.points,
-                    sum([score_weapon_on_target(
+                    ) for weapon_a in profile_a.weapons],
+                    [score_weapon_on_target(
                         weapon_b,
                         Target(t, sv, invu=invu, fnp=fnp, w=w),
                         weapon_b.avg_attack,
                         weapon_b.hit_ratio
-                    ) for weapon_b in profile_b.weapons]) / profile_b.points,
-                )
+                    ) for weapon_b in profile_b.weapons]
+                ]
                 for sv, invu in svs
             ]
             for t, w, fnp in ws_ts_fnps
         ]
+
+    score_a_score_b_tuples = [
+        [(sum(scores_weapons_a) / profile_a.points, sum(scores_weapons_b) / profile_b.points)
+         for scores_weapons_a, scores_weapons_b in line]
+        for line in res["scores"]
+    ]
+
     res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in
                 score_a_score_b_tuples]
 
