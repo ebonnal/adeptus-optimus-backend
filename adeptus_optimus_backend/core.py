@@ -4,21 +4,32 @@ from .utils import *
 
 
 # Core Classes
-class Bonuses:
-    def __init__(self, to_hit, to_wound, props=None):
-        assert (to_hit in {-1, 0, 1})
-        assert (to_wound in {-1, 0, 1})
+class Options:
+    def __init__(self,
+                 hit_modifier,
+                 wound_modifier):
+        assert (hit_modifier in {-1, 0, 1})
+        assert (wound_modifier in {-1, 0, 1})
 
-        self.to_hit = to_hit
-        self.to_wound = to_wound
-        self.props = props if props is not None else {}
+        self.hit_modifier = hit_modifier
+        self.wound_modifier = wound_modifier
 
-    @classmethod
-    def empty(cls):
-        return Bonuses(0, 0)
+    @staticmethod
+    def empty():
+        return Options(0, 0)
+
+    @staticmethod
+    def parse(options):
+        if isinstance(options, Options):
+            return options
+        else:
+            return Options(
+                hit_modifier=int(options["hit_modifier"]),
+                wound_modifier=int(options["wound_modifier"])
+            )
 
 
-Bonuses.empty().to_hit = 0
+Options.empty().hit_modifier = 0
 
 
 class Profile:
@@ -37,7 +48,7 @@ class Profile:
 
 
 class Weapon:
-    def __init__(self, hit, a, s, ap, d, bonuses=Bonuses.empty()):
+    def __init__(self, hit, a, s, ap, d, options=Options.empty()):
         # prob by roll result: O(n*dice_type)
         self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
         require(self.hit.avg > 1, "Balistic/Weapon Skill cannot be <= 1")
@@ -48,7 +59,7 @@ class Weapon:
         self.ap = parse_dice_expr(ap, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
         self.d = parse_dice_expr(d, complexity_threshold=6, raise_on_failure=True)  # exponential exponential compl
         require(self.d.avg != 0, "Damage cannot be 0")
-        self.bonuses = bonuses
+        self.options = Options.parse(options)
 
         self.avg_attack = self.a.avg
         self.hit_ratio = get_hit_ratio(self)
@@ -76,7 +87,7 @@ def get_hit_ratio(weapon):
     assert (isinstance(weapon, Weapon))
     hit_ratio = 0
     for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
-        hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.bonuses.to_hit)
+        hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.options.hit_modifier)
     return hit_ratio
 
 
@@ -91,7 +102,7 @@ def get_wound_ratio(weapon, target):
     wound_ratio = 0
     for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
         wound_ratio += compute_successes_ratio(
-            compute_necessary_wound_roll(s_roll, target.t) - weapon.bonuses.to_wound) * prob_s_roll
+            compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier) * prob_s_roll
     return wound_ratio
 
 

@@ -21,7 +21,8 @@ def parse_profile(letter, params):
             a=params.get(f"A{letter}{index}", "0"),
             s=params.get(f"S{letter}{index}", "0"),
             ap=params.get(f"AP{letter}{index}", "0"),
-            d=params.get(f"D{letter}{index}", "0"))
+            d=params.get(f"D{letter}{index}", "0"),
+            options=params[f"options{letter}{index}"])
         for index in present_indexes], params[f"points{letter}"])
 
 
