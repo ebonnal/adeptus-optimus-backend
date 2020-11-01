@@ -7,12 +7,13 @@ from .core import compute_heatmap, Profile, Weapon
 
 
 def parse_profile(letter, params):
-    present_indexes = set()
+    present_indexes = []
     params_keys = params.keys()
-    for index in range(10):
+    for index in range(5):
         for key in params_keys:
             if f"{letter}{index}" in key:
-                present_indexes.add(index)
+                present_indexes.append(index)
+                break
 
     return Profile([
         Weapon(
