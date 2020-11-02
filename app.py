@@ -10,7 +10,10 @@ app = Flask(__name__)
 
 @app.route('/engine/', methods=['GET'])
 def compare_dev_route():
-    return compare(request)
+    headers = {
+        'Access-Control-Allow-Origin': "*"
+    }
+    return compare(request, headers)
 
 
 if __name__ == "__main__":
