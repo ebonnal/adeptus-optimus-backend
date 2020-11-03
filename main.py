@@ -1,5 +1,5 @@
 # Google Cloud Function entry point
-from adeptus_optimus_backend import compare
+from adeptus_optimus_backend import compare, with_minimum_exec_time
 
 
 def treat_request(request):
