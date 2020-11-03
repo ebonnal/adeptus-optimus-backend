@@ -2,7 +2,7 @@ import json
 import traceback
 from time import time
 
-from .utils import RequirementFailError
+from .utils import RequirementFailError, with_minimum_exec_time
 from .core import compute_heatmap, Profile, Weapon
 
 
@@ -32,15 +32,28 @@ def parse_params(params):
     return profile_a, profile_b
 
 
-def compare(request, headers):
+def treat_request(request, allowed_origin):
     start_time = time()
+    # Set CORS headers for the preflight request
+    if request.method == 'OPTIONS':
+        # Allows GET requests from any origin with the Content-Type
+        # header and caches preflight response for an 3600s
+        headers = {
+            'Access-Control-Allow-Origin': allowed_origin,
+            'Access-Control-Allow-Methods': 'GET',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '86400'  # firefox max
+        }
+        return '', 204, headers
+
+    headers = {
+        'Access-Control-Allow-Origin': allowed_origin
+    }
+
     try:
         params = request.args.get('params')
         print(params)
-        if params is not None:
-            params = json.loads(params)
-        else:
-            print("Empty props received")
+        params = json.loads(params)
         try:
             response = compute_heatmap(*parse_params(params)), 200, headers
         except RequirementFailError as e:
@@ -50,3 +63,13 @@ def compare(request, headers):
         response = {"msg": f"{type(e)}: {e}"}, 500, headers
     print(f"Request processing took {time() - start_time} seconds")
     return response
+
+
+def ddos_tanking_treat_request(request, allowed_origins):
+    # Ensures together with --max-instance that even in case
+    # of DDOS we do not overpass 2 000 000 requests by month: 30*24*
+    min_sec = 1.45
+    percent_marge = 5
+    month_in_seconds = (31 * 24 * 3600)
+    assert ((1 + percent_marge / 100) * month_in_seconds < 2000000 * min_sec)
+    return with_minimum_exec_time(min_sec, lambda: treat_request(request, allowed_origins))

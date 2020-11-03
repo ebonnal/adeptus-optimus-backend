@@ -1,14 +1,14 @@
-Adeptus Optimus Backend v1
+# Adeptus Optimus Backend v1
 
-# Run flask app locally
+## Run flask app locally
 In root:
 `python app.py`
 
-# Test
+## Test
 In root:
 `python -m unittest`
 
-# Deployment:
+## Deployment:
 Using a 2.8GHz / 2Go **single** instance:
 - Typical run < 15 000 ms
 - Full month DDOS: 82$

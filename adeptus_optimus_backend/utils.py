@@ -3,9 +3,9 @@ import re
 from time import time, sleep
 
 
-def with_minimum_exec_time(seconds_min_exec_time, code, seconds_step=0.1):
+def with_minimum_exec_time(seconds_min_exec_time, callable, seconds_step=0.1):
     start = time()
-    res = code
+    res = callable()
     while time() - start < seconds_min_exec_time:
         sleep(seconds_step)
     return res

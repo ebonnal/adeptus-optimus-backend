@@ -390,7 +390,7 @@ def compute_heatmap(profile_a, profile_b):
 
     res["ratios"] = [[scores_to_ratio(score_a, score_b) for score_a, score_b in line] for line in
                      score_a_score_b_tuples]
-    print(res)
+    # print(res)
 
     # TODO: return 2 scores to be in hover log
     return res
