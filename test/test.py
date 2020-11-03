@@ -1,6 +1,7 @@
 import unittest
 
 from adeptus_optimus_backend import *
+from time import time
 
 
 class Test(unittest.TestCase):
@@ -98,6 +99,9 @@ class Test(unittest.TestCase):
         self.assertTrue(scores_to_ratio(4, 2) == 2.0)
 
     def test_utils(self):
+        start = time()
+        with_minimum_exec_time(1.45, lambda: 1)
+        self.assertGreater(time() - start, 1.45)
         self.assertTrue(str(DiceExpr(5, 3)) == "5D3")
         self.assertTrue(str(DiceExpr(1, 6)) == "D6")
         self.assertTrue(str(DiceExpr(10, None)) == "10")

@@ -51,7 +51,9 @@ class Weapon:
     def __init__(self, hit, a, s, ap, d, options=Options.empty()):
         # prob by roll result: O(n*dice_type)
         self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
-        require(self.hit.avg > 1, "Balistic/Weapon Skill cannot be <= 1")
+        require(self.hit.avg >= 2, "Balistic/Weapon Skill cannot be >= 2+")
+        require(self.hit.avg <= 6, "Balistic/Weapon Skill cannot be <= 6+")
+        require(self.hit.dices_type is None, "Balistic/Weapon Skill cannot be a dice expression")
         self.a = parse_dice_expr(a, complexity_threshold=128, raise_on_failure=True)  # only one time 0(n)
         require(self.a.avg != 0, "Number of Attacks cannot be 0")
         self.s = parse_dice_expr(s, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)

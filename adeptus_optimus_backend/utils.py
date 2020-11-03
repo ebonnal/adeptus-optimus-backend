@@ -1,12 +1,20 @@
 import re
 
-import time
+from time import time, sleep
+
+
+def with_minimum_exec_time(seconds_min_exec_time, code, seconds_step=0.1):
+    start = time()
+    res = code
+    while time() - start < seconds_min_exec_time:
+        sleep(seconds_step)
+    return res
 
 
 def with_timer(func):
-    start = time.time()
+    start = time()
     res = func()
-    print(f"Took {(time.time() - start) * 1000} ms")
+    print(f"Took {(time() - start) * 1000} ms")
     return res
 
 
