@@ -76,20 +76,32 @@ class Test(unittest.TestCase):
         self.assertTrue(
             score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, -1)), t) ==
             score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 0)), t))
-        # assert six is always a success to hit or wound
+
+        # Assert six is always a success to hit or wound
+        #   1) Modifiers
         self.assertEqual(
             get_hit_ratio(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
             get_hit_ratio(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(-1, 0))))
         self.assertEqual(
             get_wound_ratio(Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(0, 0)), Target(4)),
             get_wound_ratio(Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(0, -1)), Target(4)))
+        #  2) WS|BS > 6
+        self.assertEqual(
+            get_hit_ratio(Weapon(hit="10", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
+            get_hit_ratio(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))))
         # assert 1 is always a failure to hit or wound
+        #  1) Modifiers
         self.assertEqual(
             get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
             get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(+1, 0))))
         self.assertEqual(
             get_wound_ratio(Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(0, 0)), Target(4)),
             get_wound_ratio(Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(0, +1)), Target(4)))
+        #  2) WS|BS < 2
+        self.assertEqual(
+            get_hit_ratio(Weapon(hit="0", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
+            get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))))
+
 
         self.assertTrue(scores_to_comparison_score(10000, 1) == 0.9999)
         self.assertTrue(scores_to_comparison_score(1, 10000) == -0.9999)
@@ -100,8 +112,8 @@ class Test(unittest.TestCase):
 
     def test_utils(self):
         start = time()
-        with_minimum_exec_time(1.45, lambda: 1)
-        self.assertGreater(time() - start, 1.45)
+        with_minimum_exec_time(0.3, lambda: 1)
+        self.assertGreater(time() - start, 0.3)
         self.assertTrue(str(DiceExpr(5, 3)) == "5D3")
         self.assertTrue(str(DiceExpr(1, 6)) == "D6")
         self.assertTrue(str(DiceExpr(10, None)) == "10")
