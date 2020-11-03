@@ -1,4 +1,4 @@
-Adeptus Optimus Backend
+Adeptus Optimus Backend v1
 
 # Run flask app locally
 In root:
