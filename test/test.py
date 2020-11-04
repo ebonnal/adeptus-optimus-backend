@@ -51,7 +51,8 @@ class Test(unittest.TestCase):
         wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", options=Options(0, 0))
         wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", options=Options(0, 0))
         tar = Target(t=4, sv=1, invu=5, fnp=6, w=16)
-        self.assertTrue(abs(score_weapon_on_target(wea, tar, None, None) / score_weapon_on_target(wea2, tar, None, None) - 1) <= 0.25)
+        self.assertTrue(abs(
+            score_weapon_on_target(wea, tar, None, None) / score_weapon_on_target(wea2, tar, None, None) - 1) <= 0.25)
         # S=2D6 triggers upper threshold effect on T=8 and is better than S=7, but not on other Toughnesses
         w1, w2 = Weapon("5", "10", "2D6", "1", "1", options=Options.empty()), Weapon("5", "10", "7", "1", "1",
                                                                                      options=Options.empty())
@@ -61,20 +62,29 @@ class Test(unittest.TestCase):
         self.assertTrue(score_weapon_on_target(w1, t2, None, None) < 1.1 * score_weapon_on_target(w2, t2, None, None))
         w3, w4 = Weapon("5", "7", "2D6", "1", "1", options=Options.empty()), Weapon("5", "2D6", "2D6", "1", "1",
                                                                                     options=Options.empty())
-        self.assertTrue(float_eq(score_weapon_on_target(w3, t1, None, None), score_weapon_on_target(w4, t1, None, None)))  # options
+        self.assertTrue(
+            float_eq(score_weapon_on_target(w3, t1, None, None), score_weapon_on_target(w4, t1, None, None)))  # options
         t = Target(t=4, sv=5, invu=None, fnp=6, w=6)
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None, None) ==
-            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(1, 0)), t, None, None))
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None,
+                                   None) ==
+            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(1, 0)), t, None,
+                                   None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None, None) ==
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 1)), t, None, None))
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None,
+                                   None) ==
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 1)), t, None,
+                                   None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(-1, 0)), t, None, None) ==
-            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None, None))
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(-1, 0)), t, None,
+                                   None) ==
+            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None,
+                                   None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, -1)), t, None, None) ==
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 0)), t, None, None))
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, -1)), t, None,
+                                   None) ==
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 0)), t, None,
+                                   None))
 
         # Assert six is always a success to hit or wound
         #   1) Modifiers
@@ -101,10 +111,11 @@ class Test(unittest.TestCase):
             get_hit_ratio(Weapon(hit="0", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
             get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))))
 
-
-        self.assertTrue(scores_to_comparison_score(10000, 1) == 0.9999)
-        self.assertTrue(scores_to_comparison_score(1, 10000) == -0.9999)
-        self.assertTrue(scores_to_comparison_score(1, 1) == 0)
+        self.assertTrue(scores_to_z(10000, 1) == 1)
+        self.assertTrue(scores_to_z(1, 10000) == -1)
+        self.assertTrue(scores_to_z(1000, 1) == 0.999)
+        self.assertTrue(scores_to_z(1, 1000) == -0.999)
+        self.assertTrue(scores_to_z(1, 1) == 0)
         self.assertTrue(scores_to_ratio(1, 1) == 1)
         self.assertTrue(scores_to_ratio(1, 2) == 2.0)
         self.assertTrue(scores_to_ratio(4, 2) == 2.0)
@@ -149,3 +160,4 @@ class Test(unittest.TestCase):
             prob_by_roll_result(parse_dice_expr("2D6")) == {2: 1 / 36, 3: 2 / 36, 4: 3 / 36, 5: 4 / 36, 6: 5 / 36,
                                                             7: 6 / 36, 8: 5 / 36, 9: 4 / 36, 10: 3 / 36, 11: 2 / 36,
                                                             12: 1 / 36})
+        self.assertEqual(f"{DiceExpr(2, 3)}", "2D3")

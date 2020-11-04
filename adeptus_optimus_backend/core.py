@@ -319,11 +319,16 @@ def score_weapon_on_target(w, t, avg_n_attacks, hit_ratio):
            * get_avg_figs_fraction_slained_per_unsaved_wound(w, t)
 
 
-def scores_to_comparison_score(score_a, score_b):
+def scores_to_z(score_a, score_b):
+    """
+    z is in ]-1, 1[
+    :return z rounded in [-1, 1]
+    """
     if score_a > score_b:
-        return + (1 - score_b / score_a)
+        z = + (1 - score_b / score_a)
     else:
-        return - (1 - score_a / score_b)
+        z = - (1 - score_a / score_b)
+    return round(z, 2)  # round(z, 3) 91.8kB
 
 
 def y_dims_to_str(l):
@@ -381,7 +386,7 @@ def compute_heatmap(profile_a, profile_b):
     res["x"] = list(map(x_dims_to_str, svs))
 
     # target independant
-    res["scores"] = \
+    exact_scores = \
         [
             [
                 [
@@ -406,10 +411,20 @@ def compute_heatmap(profile_a, profile_b):
     score_a_score_b_tuples = [
         [(sum(scores_weapons_a) / profile_a.points, sum(scores_weapons_b) / profile_b.points)
          for scores_weapons_a, scores_weapons_b in line]
-        for line in res["scores"]
+        for line in exact_scores
     ]
 
-    res["z"] = [[scores_to_comparison_score(score_a, score_b) for score_a, score_b in line] for line in
+    res["scores"] = [
+        [
+            [
+                list(map(lambda x: round(x, 4), scores_weapons_a)),
+                list(map(lambda x: round(x, 4), scores_weapons_b))
+            ]
+            for scores_weapons_a, scores_weapons_b in line]
+        for line in exact_scores
+    ]
+
+    res["z"] = [[scores_to_z(score_a, score_b) for score_a, score_b in line] for line in
                 score_a_score_b_tuples]
 
     res["ratios"] = [[scores_to_ratio(score_a, score_b) for score_a, score_b in line] for line in

@@ -4,6 +4,7 @@ from time import time
 
 from adeptus_optimus_backend import ddos_tanking_treat_request
 from flask import Flask, request
+from flask.json import dumps
 
 # Flask
 app = Flask(__name__)
@@ -14,6 +15,8 @@ def run_dev():
     start_time = time()
     response = ddos_tanking_treat_request(request, "*")
     print(f"Run dev took {time() - start_time} seconds")
+    with open("./.output.json", "w") as out:
+        out.write(dumps(response[0], indent=None, separators=(",", ":")))
     return response
 
 
