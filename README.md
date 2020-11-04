@@ -9,9 +9,8 @@ In root:
 `python -m unittest`
 
 ## Deployment notes
-- If using a 2.8GHz / 2Go **single** instance:
-  - Typical run < 15 000 ms
-  - Full month DDOS: 82$
-  - Day DDOS: 3$
-  - Free for 4777 calls of 15sec by month, 159/day
-
+Using a 200MHz / 128MB **single** instance:
+- One day DDOS at 10 weapons
+  - thanks to min exec time of 3sec, it will need one day to 
+  reach the free 5Go egress bandwidth limit. 
+  - 5 additional gigs cost 0.12*5 = 0.60 cents

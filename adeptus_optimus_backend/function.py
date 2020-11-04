@@ -68,7 +68,7 @@ def treat_request(request, allowed_origin):
 def ddos_tanking_treat_request(request, allowed_origins):
     # Ensures together with --max-instance that even in case
     # of DDOS we do not overpass 2 000 000 requests by month: 30*24*
-    min_sec = 1.45
+    min_sec = 3
     percent_marge = 5
     month_in_seconds = (31 * 24 * 3600)
     assert ((1 + percent_marge / 100) * month_in_seconds < 2000000 * min_sec)
