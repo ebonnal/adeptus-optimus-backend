@@ -113,8 +113,8 @@ class Test(unittest.TestCase):
 
         self.assertTrue(scores_to_z(10000, 1) == 1)
         self.assertTrue(scores_to_z(1, 10000) == -1)
-        self.assertTrue(scores_to_z(1000, 1) == 0.999)
-        self.assertTrue(scores_to_z(1, 1000) == -0.999)
+        self.assertTrue(scores_to_z(100, 1) == 0.99)
+        self.assertTrue(scores_to_z(1, 100) == -0.99)
         self.assertTrue(scores_to_z(1, 1) == 0)
         self.assertTrue(scores_to_ratio(1, 1) == 1)
         self.assertTrue(scores_to_ratio(1, 2) == 2.0)
