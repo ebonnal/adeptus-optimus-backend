@@ -7,26 +7,25 @@ from time import time
 class Test(unittest.TestCase):
     def test_doms_alloc(self):
         # FNP
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 5, 1), 4 / 6, 0))
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), 4, 1), 0.5, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 5, 1), 4 / 6, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 4, 1), 0.5, 0))
         # on W=2
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1), None, 2), 0.5, 0))
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2), 1, 0))
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), None, 2), 0.5, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2), None, 2), 1, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0))
         # random doms
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(1, 6), None, 35), 0.1, 0))
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1, 6), None, 35), 0.1, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(
             DiceExpr(1, 6), 4, 175), 0.01, 0)
         )
 
-        self.assertTrue(float_eq(compute_slained_figs_ratios_per_unsaved_wound(
-            DiceExpr(1, 6), 5, 70, n_unsaved_wounds_init=70), 2 / 3 * 3.5 / 70, 0)
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(
+            DiceExpr(1, 6), 5, 70), 2 / 3 * 3.5 / 70, 0)
         )
         # lost damages
         self.assertTrue(
-            float_eq(compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6,
-                                                                   n_unsaved_wounds_init=33), 0.5, 0))
+            float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6), 0.5, 0))
 
     def test_engine_core(self):
         self.assertEqual(Options.parse({"hit_modifier": "0", "wound_modifier": "0"}).wound_modifier, 0)
@@ -36,11 +35,11 @@ class Test(unittest.TestCase):
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) ==
-                        compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(3), None, 5))
+                        get_slained_figs_ratio_per_unsaved_wound(DiceExpr(3), None, 5))
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) ==
-                        compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(2), None, 2))
+                        get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2), None, 2))
         self.assertTrue(float_eq(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16),
-                                 compute_slained_figs_ratios_per_unsaved_wound(DiceExpr(6), None, 16), 0))
+                                 get_slained_figs_ratio_per_unsaved_wound(DiceExpr(6), None, 16), 0))
         self.assertTrue(get_avg_figs_fraction_slained_per_unsaved_wound(
             Weapon("5", "10", "2D6", "1", "1"),
             Target(t=8, sv=6, invu=None, fnp=6, w=1)

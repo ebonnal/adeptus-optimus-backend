@@ -91,6 +91,9 @@ def get_hit_ratio(weapon):
     return hit_ratio
 
 
+wound_ratios_cache = {}
+
+
 def get_wound_ratio(weapon, target):
     """
     Random strength value is resolved once per weapon:
@@ -99,24 +102,41 @@ def get_wound_ratio(weapon, target):
     """
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    wound_ratio = 0
-    for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
-        wound_ratio += compute_successes_ratio(
-            compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier) * prob_s_roll
-    return wound_ratio
+    key = f"{weapon.s}{weapon.options.wound_modifier}{target.t}"
+    wound_ratio = wound_ratios_cache.get(key, None)
+    if wound_ratio is not None:
+        return wound_ratio
+    else:
+        wound_ratio = 0
+        for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
+            wound_ratio += compute_successes_ratio(
+                compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier) * prob_s_roll
+
+        wound_ratios_cache[key] = wound_ratio
+        return wound_ratio
+
+
+unsaved_wound_ratios_cache = {}
 
 
 def get_unsaved_wound_ratio(weapon, target):
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    unsaved_wound_ratio = 0
-    for ap_roll, prob_ap_roll in prob_by_roll_result(weapon.ap).items():
-        save_roll = target.sv + ap_roll
-        if target.invu is not None:
-            save_roll = min(save_roll, target.invu)
-        save_fail_ratio = 1 - compute_successes_ratio(save_roll, auto_success_on_6=False)
-        unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
-    return unsaved_wound_ratio
+    key = f"{weapon.ap}{target.sv}{target.invu}"
+    unsaved_wound_ratio = unsaved_wound_ratios_cache.get(key, None)
+    if unsaved_wound_ratio is not None:
+        return unsaved_wound_ratio
+    else:
+        unsaved_wound_ratio = 0
+        for ap_roll, prob_ap_roll in prob_by_roll_result(weapon.ap).items():
+            save_roll = target.sv + ap_roll
+            if target.invu is not None:
+                save_roll = min(save_roll, target.invu)
+            save_fail_ratio = 1 - compute_successes_ratio(save_roll, auto_success_on_6=False)
+            unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
+
+        unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
+        return unsaved_wound_ratio
 
 
 class Cache:
@@ -178,7 +198,7 @@ class State:
                      self.remaining_target_wounds)
 
 
-def compute_slained_figs_frac(state_):
+def get_slained_figs_ratio(state_):
     assert (isinstance(state_, State))
     assert (state_.remaining_target_wounds >= 0)
     assert (state_.n_unsaved_wounds_left >= 0)
@@ -190,7 +210,7 @@ def compute_slained_figs_frac(state_):
         state.remaining_target_wounds = State.target_wounds
         # additionnal damages are not propagated to other models
         state.current_wound_n_damages_left = 0
-        downstream = compute_slained_figs_frac(state)
+        downstream = get_slained_figs_ratio(state)
         downstream += 1
         return downstream  # upstream propagation of figs slained count
 
@@ -215,10 +235,10 @@ def compute_slained_figs_frac(state_):
                     # random doms handling
                     res = [
                         prob_d *
-                        compute_slained_figs_frac(State(n_unsaved_wounds_left=state.n_unsaved_wounds_left - 1,
-                                                        current_wound_n_damages_left=d,
-                                                        n_figs_slained_so_far=state.n_figs_slained_so_far,
-                                                        remaining_target_wounds=state.remaining_target_wounds))
+                        get_slained_figs_ratio(State(n_unsaved_wounds_left=state.n_unsaved_wounds_left - 1,
+                                                     current_wound_n_damages_left=d,
+                                                     n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                                     remaining_target_wounds=state.remaining_target_wounds))
                         for d, prob_d in prob_by_roll_result(State.weapon_d).items()
                     ]
                     downstream = sum(res)
@@ -226,17 +246,17 @@ def compute_slained_figs_frac(state_):
                     return downstream
             else:
                 # FNP fail
-                f = compute_slained_figs_frac(State(state.n_unsaved_wounds_left,
-                                                    state.current_wound_n_damages_left - 1,
-                                                    state.n_figs_slained_so_far,
-                                                    state.remaining_target_wounds - 1))
+                f = get_slained_figs_ratio(State(state.n_unsaved_wounds_left,
+                                                 state.current_wound_n_damages_left - 1,
+                                                 state.n_figs_slained_so_far,
+                                                 state.remaining_target_wounds - 1))
 
                 # FNP success
                 if State.fnp_fail_ratio != 1:
-                    s = compute_slained_figs_frac(State(state.n_unsaved_wounds_left,
-                                                        state.current_wound_n_damages_left - 1,
-                                                        state.n_figs_slained_so_far,
-                                                        state.remaining_target_wounds))
+                    s = get_slained_figs_ratio(State(state.n_unsaved_wounds_left,
+                                                     state.current_wound_n_damages_left - 1,
+                                                     state.n_figs_slained_so_far,
+                                                     state.remaining_target_wounds))
                     downstream = (1 - State.fnp_fail_ratio) * s + State.fnp_fail_ratio * f
                 else:
                     downstream = f
@@ -244,21 +264,21 @@ def compute_slained_figs_frac(state_):
                 return downstream
 
 
-def compute_slained_figs_ratios_per_unsaved_wound(weapon_d, target_fnp, target_wounds, n_unsaved_wounds_init=10):
+def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds):
     """
     n_unsaved_wounds_init=32: 14 sec, res prec +-0.02 compared to 64
     n_unsaved_wounds_init=10:  5 sec, res prec +-0.1  compared to 64
     """
     State.weapon_d = weapon_d
     State.target_wounds = target_wounds
-    State.n_unsaved_wounds_init = n_unsaved_wounds_init
+    State.n_unsaved_wounds_init = 10
     State.n_figs_slained_weighted_ratios = []
     State.fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
     State.start_target_wounds = target_wounds
     State.cache.reset()
 
-    return compute_slained_figs_frac(State(
-        n_unsaved_wounds_left=n_unsaved_wounds_init,
+    return get_slained_figs_ratio(State(
+        n_unsaved_wounds_left=State.n_unsaved_wounds_init,
         current_wound_n_damages_left=0,
         n_figs_slained_so_far=0,
         remaining_target_wounds=target_wounds)) / State.n_unsaved_wounds_init
@@ -282,7 +302,7 @@ def get_avg_figs_fraction_slained_per_unsaved_wound(weapon, target):
     if weapon.d.dices_type is None and target.fnp is None:
         return exact_avg_figs_fraction_slained_per_unsaved_wound(d=weapon.d.n, w=target.w)
 
-    return compute_slained_figs_ratios_per_unsaved_wound(weapon.d, target.fnp, target.w)
+    return get_slained_figs_ratio_per_unsaved_wound(weapon.d, target.fnp, target.w)
 
 
 def score_weapon_on_target(w, t, avg_n_attacks, hit_ratio):
