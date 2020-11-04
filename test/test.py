@@ -52,30 +52,30 @@ class Test(unittest.TestCase):
         wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", options=Options(0, 0))
         wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", options=Options(0, 0))
         tar = Target(t=4, sv=1, invu=5, fnp=6, w=16)
-        self.assertTrue(abs(score_weapon_on_target(wea, tar) / score_weapon_on_target(wea2, tar) - 1) <= 0.25)
+        self.assertTrue(abs(score_weapon_on_target(wea, tar, None, None) / score_weapon_on_target(wea2, tar, None, None) - 1) <= 0.25)
         # S=2D6 triggers upper threshold effect on T=8 and is better than S=7, but not on other Toughnesses
         w1, w2 = Weapon("5", "10", "2D6", "1", "1", options=Options.empty()), Weapon("5", "10", "7", "1", "1",
                                                                                      options=Options.empty())
         t1 = Target(t=8, sv=6, invu=None, fnp=6, w=1)
         t2 = Target(t=7, sv=6, invu=None, fnp=6, w=1)
-        self.assertTrue(score_weapon_on_target(w1, t1) > 1.1 * score_weapon_on_target(w2, t1))
-        self.assertTrue(score_weapon_on_target(w1, t2) < 1.1 * score_weapon_on_target(w2, t2))
+        self.assertTrue(score_weapon_on_target(w1, t1, None, None) > 1.1 * score_weapon_on_target(w2, t1, None, None))
+        self.assertTrue(score_weapon_on_target(w1, t2, None, None) < 1.1 * score_weapon_on_target(w2, t2, None, None))
         w3, w4 = Weapon("5", "7", "2D6", "1", "1", options=Options.empty()), Weapon("5", "2D6", "2D6", "1", "1",
                                                                                     options=Options.empty())
-        self.assertTrue(float_eq(score_weapon_on_target(w3, t1), score_weapon_on_target(w4, t1)))  # options
+        self.assertTrue(float_eq(score_weapon_on_target(w3, t1, None, None), score_weapon_on_target(w4, t1, None, None)))  # options
         t = Target(t=4, sv=5, invu=None, fnp=6, w=6)
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t) ==
-            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(1, 0)), t))
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None, None) ==
+            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(1, 0)), t, None, None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t) ==
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 1)), t))
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None, None) ==
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 1)), t, None, None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(-1, 0)), t) ==
-            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t))
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(-1, 0)), t, None, None) ==
+            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None, None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, -1)), t) ==
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 0)), t))
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, -1)), t, None, None) ==
+            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 0)), t, None, None))
 
         # Assert six is always a success to hit or wound
         #   1) Modifiers

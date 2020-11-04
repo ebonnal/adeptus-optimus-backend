@@ -285,7 +285,7 @@ def get_avg_figs_fraction_slained_per_unsaved_wound(weapon, target):
     return compute_slained_figs_ratios_per_unsaved_wound(weapon.d, target.fnp, target.w)
 
 
-def score_weapon_on_target(w, t, avg_n_attacks=None, hit_ratio=None):
+def score_weapon_on_target(w, t, avg_n_attacks, hit_ratio):
     """
     avg_figs_fraction_slained by point
     """
