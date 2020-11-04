@@ -104,16 +104,14 @@ def get_wound_ratio(weapon, target):
     assert (isinstance(target, Target))
     key = f"{weapon.s}{weapon.options.wound_modifier}{target.t}"
     wound_ratio = wound_ratios_cache.get(key, None)
-    if wound_ratio is not None:
-        return wound_ratio
-    else:
+    if wound_ratio is None:
         wound_ratio = 0
         for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
             wound_ratio += compute_successes_ratio(
                 compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier) * prob_s_roll
-
         wound_ratios_cache[key] = wound_ratio
-        return wound_ratio
+
+    return wound_ratio
 
 
 unsaved_wound_ratios_cache = {}
@@ -124,9 +122,7 @@ def get_unsaved_wound_ratio(weapon, target):
     assert (isinstance(target, Target))
     key = f"{weapon.ap}{target.sv}{target.invu}"
     unsaved_wound_ratio = unsaved_wound_ratios_cache.get(key, None)
-    if unsaved_wound_ratio is not None:
-        return unsaved_wound_ratio
-    else:
+    if unsaved_wound_ratio is None:
         unsaved_wound_ratio = 0
         for ap_roll, prob_ap_roll in prob_by_roll_result(weapon.ap).items():
             save_roll = target.sv + ap_roll
@@ -134,9 +130,9 @@ def get_unsaved_wound_ratio(weapon, target):
                 save_roll = min(save_roll, target.invu)
             save_fail_ratio = 1 - compute_successes_ratio(save_roll, auto_success_on_6=False)
             unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
-
         unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
-        return unsaved_wound_ratio
+
+    return unsaved_wound_ratio
 
 
 class Cache:
@@ -264,24 +260,32 @@ def get_slained_figs_ratio(state_):
                 return downstream
 
 
+slained_figs_ratio_per_unsaved_wound_cache = {}
+
+
 def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds):
     """
     n_unsaved_wounds_init=32: 14 sec, res prec +-0.02 compared to 64
     n_unsaved_wounds_init=10:  5 sec, res prec +-0.1  compared to 64
     """
-    State.weapon_d = weapon_d
-    State.target_wounds = target_wounds
-    State.n_unsaved_wounds_init = 10
-    State.n_figs_slained_weighted_ratios = []
-    State.fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
-    State.start_target_wounds = target_wounds
-    State.cache.reset()
+    key = f"{weapon_d}{target_fnp}{target_wounds}"
+    slained_figs_ratio_per_unsaved_wound = slained_figs_ratio_per_unsaved_wound_cache.get(key, None)
+    if slained_figs_ratio_per_unsaved_wound is None:
+        State.weapon_d = weapon_d
+        State.target_wounds = target_wounds
+        State.n_unsaved_wounds_init = 10
+        State.n_figs_slained_weighted_ratios = []
+        State.fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
+        State.start_target_wounds = target_wounds
+        State.cache.reset()
 
-    return get_slained_figs_ratio(State(
-        n_unsaved_wounds_left=State.n_unsaved_wounds_init,
-        current_wound_n_damages_left=0,
-        n_figs_slained_so_far=0,
-        remaining_target_wounds=target_wounds)) / State.n_unsaved_wounds_init
+        slained_figs_ratio_per_unsaved_wound = get_slained_figs_ratio(State(
+            n_unsaved_wounds_left=State.n_unsaved_wounds_init,
+            current_wound_n_damages_left=0,
+            n_figs_slained_so_far=0,
+            remaining_target_wounds=target_wounds)) / State.n_unsaved_wounds_init
+        slained_figs_ratio_per_unsaved_wound_cache[key] = slained_figs_ratio_per_unsaved_wound
+    return slained_figs_ratio_per_unsaved_wound
 
 
 def exact_avg_figs_fraction_slained_per_unsaved_wound(d, w):
