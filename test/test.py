@@ -52,9 +52,31 @@ class Test(unittest.TestCase):
         self.assertTrue(float_eq(compute_successes_ratio(2, True, Options.all), 1 - 1 / 6 * 1 / 6))
         self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.all), 1 - 5 / 6 * 5 / 6))
         self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.none, 6),
-                                     1 / 6 + 1 / 6 / 6))
-        self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.none, 6),
                                  1 / 6 + 1 / 6 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.onestwos, 5),
+                                 1 / 6 +                  # direct success
+                                 2 / 6 * 1 / 6 +          # dakka3 -> success
+                                 2 / 6 * 2 / 6 * 1 / 6 +  # dakka3 -> reroll -> success
+                                 2 / 6 * 1 / 6 +          # reroll -> success
+                                 2 / 6 * 2 / 6 * 1 / 6    # reroll -> dakka3 -> success
+                                 ))
+
+        self.assertTrue(float_eq(compute_successes_ratio(4, True, Options.onestwos, 5),
+                                 3 / 6 +                  # direct success
+                                 2 / 6 * 3 / 6 +          # dakka3 -> success
+                                 2 / 6 * 2 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
+                                 2 / 6 * 3 / 6 +          # reroll -> success
+                                 2 / 6 * 2 / 6 * 3 / 6    # reroll -> dakka3 -> success
+                                 ))
+
+        self.assertTrue(float_eq(compute_successes_ratio(4, True, Options.all, 6),
+                                 3 / 6 +                  # direct success
+                                 1 / 6 * 3 / 6 +          # dakka3 -> success
+                                 1 / 6 * 3 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
+                                 3 / 6 * 3 / 6 +          # reroll -> success
+                                 3 / 6 * 1 / 6 * 3 / 6    # reroll -> dakka3 -> success
+                                 ))
+
     def test_engine_core(self):
         self.assertEqual(Options.parse({"hit_modifier": "0",
                                         "wound_modifier": "0",

@@ -167,7 +167,7 @@ def get_wound_ratio(weapon, target):
     """
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    key = f"{weapon.s}{weapon.options.wound_modifier}{target.t}"
+    key = f"{weapon.s}{weapon.options.wound_modifier}{weapon.options.reroll_wounds}{target.t}"
     wound_ratio = wound_ratios_cache.get(key, None)
     if wound_ratio is None:
         wound_ratio = 0
