@@ -2,8 +2,9 @@ import json
 import traceback
 from time import time
 
-from .utils import RequirementFailError, with_minimum_exec_time
-from .core import compute_heatmap, Profile, Weapon
+from .utils import RequirementError, with_minimum_exec_time, is_dev_execution
+from .engine import compute_heatmap, Profile, Weapon
+from .linkgen import get_short_dynamic_link, get_long_dynamic_link
 
 
 def parse_profile(letter, params):
@@ -17,18 +18,20 @@ def parse_profile(letter, params):
 
     return Profile([
         Weapon(
-            hit=params.get(f"WSBS{letter}{index}", "0"),
-            a=params.get(f"A{letter}{index}", "0"),
-            s=params.get(f"S{letter}{index}", "0"),
-            ap=params.get(f"AP{letter}{index}", "0"),
-            d=params.get(f"D{letter}{index}", "0"),
+            hit=params[f"WSBS{letter}{index}"],
+            a=params[f"A{letter}{index}"],
+            s=params[f"S{letter}{index}"],
+            ap=params[f"AP{letter}{index}"],
+            d=params[f"D{letter}{index}"],
             options=params[f"options{letter}{index}"])
-        for index in present_indexes], params[f"points{letter}"])
+        for index in present_indexes], params.get(f"points{letter}", ""))
 
 
 def parse_params(params):
+    Weapon.at_least_one_blast_weapon = False
     profile_a, profile_b = parse_profile("A", params), parse_profile("B", params)
-    print(f"Parsed {len(profile_a.weapons)} weapons for profile A and {len(profile_b.weapons)} for profile B.")
+    if is_dev_execution():
+        print(f"Parsed {len(profile_a.weapons)} weapons for profile A and {len(profile_b.weapons)} for profile B.")
     return profile_a, profile_b
 
 
@@ -52,16 +55,31 @@ def treat_request(request, allowed_origin):
 
     try:
         params = request.args.get('params')
-        print(params)
-        params = json.loads(params)
-        try:
-            response = compute_heatmap(*parse_params(params)), 200, headers
-        except RequirementFailError as e:
-            response = {"msg": f"Bad input: {e}"}, 422, headers
+        share_settings = request.args.get('share_settings')
+        if is_dev_execution():
+            print("received params=", params)
+            print("received share_settings=", share_settings)
+        if params is not None:
+            params = json.loads(params)
+            try:
+                response = compute_heatmap(*parse_params(params)), 200, headers
+            except RequirementError as e:
+                response = {"msg": f"INVALID INPUT: {e}"}, 422, headers
+        elif share_settings is not None:  # dynamic short link gen
+            if is_dev_execution():
+                dynamic_link = get_long_dynamic_link(share_settings)
+            else:
+                dynamic_link = get_short_dynamic_link(share_settings)
+            response = {"link": dynamic_link}, 200, headers
+        else:
+            raise RuntimeError("Request json query string should contain key 'share_settings' or 'params'")
     except Exception as e:
-        traceback.print_exc()
+        if is_dev_execution():
+            traceback.print_exc()
         response = {"msg": f"{type(e)}: {e}"}, 500, headers
-    print(f"Request processing took {time() - start_time} seconds")
+    if is_dev_execution():
+        print(f"Request processing took {time() - start_time} seconds")
+    print(f"user_ip:{request.remote_addr}")
     return response
 
 
