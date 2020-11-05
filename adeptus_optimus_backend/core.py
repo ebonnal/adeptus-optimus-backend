@@ -35,7 +35,7 @@ Options.empty().hit_modifier = 0
 class Profile:
     def __init__(self, weapons, points):
         assert (isinstance(weapons, list))
-        require(len(weapons) > 0, "An attacking profile must have at least one weapon declared")
+        require(len(weapons) > 0, "An attacking profile must have at least one declared weapon")
         assert (isinstance(weapons[0], Weapon))
         self.weapons = weapons
         try:
@@ -273,7 +273,7 @@ def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds
     if slained_figs_ratio_per_unsaved_wound is None:
         State.weapon_d = weapon_d
         State.target_wounds = target_wounds
-        State.n_unsaved_wounds_init = 10
+        State.n_unsaved_wounds_init = 16
         State.n_figs_slained_weighted_ratios = []
         State.fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
         State.start_target_wounds = target_wounds
