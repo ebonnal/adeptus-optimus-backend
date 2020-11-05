@@ -18,16 +18,18 @@ class Options:
                  hit_modifier=0,
                  wound_modifier=0,
                  reroll_hits="none",
-                 reroll_wounds="none"):
+                 reroll_wounds="none",
+                 dakka3="none"):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
         assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.all})
         assert (reroll_wounds in {Options.none, Options.ones, Options.onestwos, Options.all})
-
+        assert (dakka3 in {Options.none, 5, 6})
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
         self.reroll_hits = reroll_hits
         self.reroll_wounds = reroll_wounds
+        self.dakka3 = dakka3
 
     @staticmethod
     def empty():
@@ -42,7 +44,8 @@ class Options:
                 hit_modifier=int(options["hit_modifier"]),
                 wound_modifier=int(options["wound_modifier"]),
                 reroll_hits=options["reroll_hits"],
-                reroll_wounds=options["reroll_wounds"]
+                reroll_wounds=options["reroll_wounds"],
+                dakka3=Options.none if options["dakka3"] == Options.none else int(options["dakka3"])
             )
 
 
@@ -97,17 +100,6 @@ class Target:
         self.w = w
 
 
-def get_hit_ratio(weapon):
-    assert (isinstance(weapon, Weapon))
-    hit_ratio = 0
-    for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
-        hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.options.hit_modifier)
-    return hit_ratio
-
-
-wound_ratios_cache = {}
-
-
 def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none):
     assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.all})
 
@@ -126,10 +118,21 @@ def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, rer
         return base_successes_ratio + base_successes_ratio / 6
     elif reroll == Options.onestwos:
         # guaranteed that necessary_roll > 2
-        return base_successes_ratio + 2*base_successes_ratio / 6
+        return base_successes_ratio + 2 * base_successes_ratio / 6
     elif reroll == Options.all:
-        return base_successes_ratio + (1-base_successes_ratio)*base_successes_ratio#1 - (1 - base_successes_ratio)**2
+        return 1 - (1 - base_successes_ratio)**2
 
+
+def get_hit_ratio(weapon):
+    assert (isinstance(weapon, Weapon))
+    hit_ratio = 0
+    for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
+        hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.options.hit_modifier,
+                                                             reroll=weapon.options.reroll_hits)
+    return hit_ratio
+
+
+wound_ratios_cache = {}
 
 
 def get_wound_ratio(weapon, target):
@@ -146,7 +149,9 @@ def get_wound_ratio(weapon, target):
         wound_ratio = 0
         for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
             wound_ratio += compute_successes_ratio(
-                compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier) * prob_s_roll
+                compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier,
+                reroll=weapon.options.reroll_wounds
+            ) * prob_s_roll
         wound_ratios_cache[key] = wound_ratio
 
     return wound_ratio

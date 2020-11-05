@@ -4,7 +4,7 @@ from adeptus_optimus_backend import *
 from time import time
 
 
-def float_eq(a, b, n_same_decimals=4, verbose=False):
+def float_eq(a, b, n_same_decimals=8, verbose=False):
     if verbose:
         print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
     return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
@@ -34,7 +34,12 @@ class Test(unittest.TestCase):
         self.assertTrue(
             float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6), 0.5, 0))
 
-    def test_engine_core(self):
+    def test_compute_successes_ratio(self):
+        self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.none), 1 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(6, True, Options.none), 1 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(4, True, Options.none), 3 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(8, False, Options.none), 0))
+
         self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.ones), 1 / 6 + 1 / 6 / 6))
         self.assertTrue(float_eq(compute_successes_ratio(2, True, Options.ones), 5 / 6 + 5 / 6 / 6))
         self.assertTrue(float_eq(compute_successes_ratio(2, True, Options.onestwos),
@@ -42,11 +47,12 @@ class Test(unittest.TestCase):
         self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.onestwos), 1 / 6 + 2 / 6 / 6))
         self.assertTrue(float_eq(compute_successes_ratio(4, True, Options.onestwos),
                                  1 - (1 / 6 + 2 * 1 / 2 / 6)))  # only 3 or reroll 1,2,3 fail
-        self.assertTrue(
-            float_eq(compute_successes_ratio(3, True, Options.onestwos), compute_successes_ratio(3, True, Options.all)))
+        self.assertTrue(float_eq(compute_successes_ratio(3, True, Options.onestwos),
+                                 compute_successes_ratio(3, True, Options.all)))
         self.assertTrue(float_eq(compute_successes_ratio(2, True, Options.all), 1 - 1 / 6 * 1 / 6))
         self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.all), 1 - 5 / 6 * 5 / 6))
 
+    def test_engine_core(self):
         self.assertEqual(Options.parse({"hit_modifier": "0", "wound_modifier": "0", "reroll_hits": "none",
                                         "reroll_wounds": "none"}).wound_modifier, 0)
         self.assertEqual(Options.parse(
