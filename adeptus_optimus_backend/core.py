@@ -8,6 +8,12 @@ class Options:
     """
     Notes about rules:
     - Rerolls apply before modifiers
+    - Bad moon reroll & dakka3
+      Also goes the other way. So if you roll a 1 then reroll to a 6,
+      you score a hit plus you get to make an extra hit roll
+      (which can also be rerolled if it's a 1). You just can't
+      get another bonus attack from a bonus attack, or reroll
+      the same hit roll again.
     """
     ones = "ones"
     onestwos = "onestwos"
@@ -29,6 +35,7 @@ class Options:
         self.wound_modifier = wound_modifier
         self.reroll_hits = reroll_hits
         self.reroll_wounds = reroll_wounds
+
         self.dakka3 = dakka3
 
     @staticmethod
@@ -100,8 +107,9 @@ class Target:
         self.w = w
 
 
-def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none):
+def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none, dakka3=Options.none):
     assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.all})
+    assert (dakka3 in {Options.none, 5, 6})
 
     necessary_roll = modified_necessary_roll
     if modified_necessary_roll <= 1:
@@ -111,24 +119,40 @@ def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, rer
             necessary_roll = 6  # roll of 6 always succeeds
         else:
             return 0
-    base_successes_ratio = (7 - necessary_roll) / 6
-    if reroll == Options.none:
-        return base_successes_ratio
-    elif reroll == Options.ones or (reroll == Options.onestwos and necessary_roll == 2):
-        return base_successes_ratio + base_successes_ratio / 6
-    elif reroll == Options.onestwos:
-        # guaranteed that necessary_roll > 2
-        return base_successes_ratio + 2 * base_successes_ratio / 6
-    elif reroll == Options.all:
-        return 1 - (1 - base_successes_ratio)**2
+
+    def f(reroll_consumed, dakka3_consumed):
+        successes_ratio = 0
+        for i in range(1, 7):
+            if i >= necessary_roll:
+                successes_ratio += 1 / 6
+            elif not reroll_consumed and reroll != Options.none:
+                if reroll == Options.ones and i == 1:
+                    successes_ratio += 1 / 6 * f(True, dakka3_consumed)
+                elif reroll == Options.onestwos and i <= 2:
+                    successes_ratio += 1 / 6 * f(True, dakka3_consumed)
+                elif reroll == Options.all:
+                    successes_ratio += 1 / 6 * f(True, dakka3_consumed)
+            if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
+                successes_ratio += 1 / 6 * f(reroll_consumed, True)
+
+        return successes_ratio
+
+    return f(False, False)
+
+
+hit_ratios_cache = {}
 
 
 def get_hit_ratio(weapon):
     assert (isinstance(weapon, Weapon))
-    hit_ratio = 0
-    for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
-        hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.options.hit_modifier,
-                                                             reroll=weapon.options.reroll_hits)
+    key = f"{weapon.hit}{weapon.options.hit_modifier}{weapon.options.reroll_hits}"
+    hit_ratio = hit_ratios_cache.get(key, None)
+    if hit_ratio is None:
+        hit_ratio = 0
+        for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
+            hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.options.hit_modifier,
+                                                                 reroll=weapon.options.reroll_hits)
+        hit_ratios_cache[key] = hit_ratio
     return hit_ratio
 
 

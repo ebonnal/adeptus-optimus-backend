@@ -51,13 +51,21 @@ class Test(unittest.TestCase):
                                  compute_successes_ratio(3, True, Options.all)))
         self.assertTrue(float_eq(compute_successes_ratio(2, True, Options.all), 1 - 1 / 6 * 1 / 6))
         self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.all), 1 - 5 / 6 * 5 / 6))
-
+        self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.none, 6),
+                                     1 / 6 + 1 / 6 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.none, 6),
+                                 1 / 6 + 1 / 6 / 6))
     def test_engine_core(self):
-        self.assertEqual(Options.parse({"hit_modifier": "0", "wound_modifier": "0", "reroll_hits": "none",
-                                        "reroll_wounds": "none"}).wound_modifier, 0)
-        self.assertEqual(Options.parse(
-            {"hit_modifier": "0", "wound_modifier": "0", "reroll_hits": "none", "reroll_wounds": "none"}).hit_modifier,
-                         0)
+        self.assertEqual(Options.parse({"hit_modifier": "0",
+                                        "wound_modifier": "0",
+                                        "reroll_hits": "none",
+                                        "reroll_wounds": "none",
+                                        "dakka3": "none"}).wound_modifier, 0)
+        self.assertEqual(Options.parse({"hit_modifier": "0",
+                                        "wound_modifier": "0",
+                                        "reroll_hits": "none",
+                                        "reroll_wounds": "none",
+                                        "dakka3": "none"}).hit_modifier, 0)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
