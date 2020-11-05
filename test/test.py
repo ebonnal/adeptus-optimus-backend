@@ -4,7 +4,14 @@ from adeptus_optimus_backend import *
 from time import time
 
 
+def float_eq(a, b, n_same_decimals=4, verbose=False):
+    if verbose:
+        print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
+    return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
+
+
 class Test(unittest.TestCase):
+
     def test_doms_alloc(self):
         # FNP
         self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))
@@ -28,9 +35,23 @@ class Test(unittest.TestCase):
             float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6), 0.5, 0))
 
     def test_engine_core(self):
-        self.assertEqual(Options.parse({"hit_modifier": "0", "wound_modifier": "0"}).wound_modifier, 0)
-        self.assertEqual(Options.parse({"hit_modifier": "0", "wound_modifier": "0"}).hit_modifier, 0)
-        self.assertTrue(dispatch_density_key(3, 0.5) == {0: 0.125, 1: 0.375, 2: 0.375, 3: 0.125})
+        self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.ones), 1 / 6 + 1 / 6 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(2, True, Options.ones), 5 / 6 + 5 / 6 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(2, True, Options.onestwos),
+                                 compute_successes_ratio(2, True, Options.ones)))
+        self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.onestwos), 1 / 6 + 2 / 6 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(4, True, Options.onestwos),
+                                 1 - (1 / 6 + 2 * 1 / 2 / 6)))  # only 3 or reroll 1,2,3 fail
+        self.assertTrue(
+            float_eq(compute_successes_ratio(3, True, Options.onestwos), compute_successes_ratio(3, True, Options.all)))
+        self.assertTrue(float_eq(compute_successes_ratio(2, True, Options.all), 1 - 1 / 6 * 1 / 6))
+        self.assertTrue(float_eq(compute_successes_ratio(8, True, Options.all), 1 - 5 / 6 * 5 / 6))
+
+        self.assertEqual(Options.parse({"hit_modifier": "0", "wound_modifier": "0", "reroll_hits": "none",
+                                        "reroll_wounds": "none"}).wound_modifier, 0)
+        self.assertEqual(Options.parse(
+            {"hit_modifier": "0", "wound_modifier": "0", "reroll_hits": "none", "reroll_wounds": "none"}).hit_modifier,
+                         0)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
@@ -48,8 +69,8 @@ class Test(unittest.TestCase):
             Target(t=8, sv=6, invu=None, fnp=6, w=1)
         ))
         self.assertTrue(get_avg_of_density({0: 0.2, 1: 0.5, 2: 0.3}) == 0.5 + 0.3 * 2)
-        wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", options=Options(0, 0))
-        wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", options=Options(0, 0))
+        wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", options=Options(hit_modifier=0, wound_modifier=0))
+        wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", options=Options(hit_modifier=0, wound_modifier=0))
         tar = Target(t=4, sv=1, invu=5, fnp=6, w=16)
         self.assertTrue(abs(
             score_weapon_on_target(wea, tar, None, None) / score_weapon_on_target(wea2, tar, None, None) - 1) <= 0.25)
@@ -66,50 +87,82 @@ class Test(unittest.TestCase):
             float_eq(score_weapon_on_target(w3, t1, None, None), score_weapon_on_target(w4, t1, None, None)))  # options
         t = Target(t=4, sv=5, invu=None, fnp=6, w=6)
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None,
-                                   None) ==
-            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(1, 0)), t, None,
-                                   None))
+            score_weapon_on_target(
+                Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0)), t,
+                None,
+                None) ==
+            score_weapon_on_target(
+                Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=1, wound_modifier=0)), t,
+                None,
+                None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None,
-                                   None) ==
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 1)), t, None,
-                                   None))
+            score_weapon_on_target(
+                Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0)), t,
+                None,
+                None) ==
+            score_weapon_on_target(
+                Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=1)), t,
+                None,
+                None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(-1, 0)), t, None,
-                                   None) ==
-            score_weapon_on_target(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0)), t, None,
-                                   None))
+            score_weapon_on_target(
+                Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=-1, wound_modifier=0)), t,
+                None,
+                None) ==
+            score_weapon_on_target(
+                Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0)), t,
+                None,
+                None))
         self.assertTrue(
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(0, -1)), t, None,
-                                   None) ==
-            score_weapon_on_target(Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(0, 0)), t, None,
-                                   None))
+            score_weapon_on_target(
+                Weapon(hit="5", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=-1)), t,
+                None,
+                None) ==
+            score_weapon_on_target(
+                Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0)), t,
+                None,
+                None))
 
         # Assert six is always a success to hit or wound
         #   1) Modifiers
         self.assertEqual(
-            get_hit_ratio(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
-            get_hit_ratio(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(-1, 0))))
+            get_hit_ratio(
+                Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))),
+            get_hit_ratio(
+                Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=-1, wound_modifier=0))))
         self.assertEqual(
-            get_wound_ratio(Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(0, 0)), Target(4)),
-            get_wound_ratio(Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(0, -1)), Target(4)))
+            get_wound_ratio(
+                Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0)),
+                Target(4)),
+            get_wound_ratio(
+                Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=-1)),
+                Target(4)))
         #  2) WS|BS > 6
         self.assertEqual(
-            get_hit_ratio(Weapon(hit="10", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
-            get_hit_ratio(Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))))
+            get_hit_ratio(
+                Weapon(hit="10", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))),
+            get_hit_ratio(
+                Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))))
         # assert 1 is always a failure to hit or wound
         #  1) Modifiers
         self.assertEqual(
-            get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
-            get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(+1, 0))))
+            get_hit_ratio(
+                Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))),
+            get_hit_ratio(
+                Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=+1, wound_modifier=0))))
         self.assertEqual(
-            get_wound_ratio(Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(0, 0)), Target(4)),
-            get_wound_ratio(Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(0, +1)), Target(4)))
+            get_wound_ratio(
+                Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0)),
+                Target(4)),
+            get_wound_ratio(
+                Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=+1)),
+                Target(4)))
         #  2) WS|BS < 2
         self.assertEqual(
-            get_hit_ratio(Weapon(hit="0", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))),
-            get_hit_ratio(Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(0, 0))))
+            get_hit_ratio(
+                Weapon(hit="0", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))),
+            get_hit_ratio(
+                Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))))
 
         self.assertTrue(scores_to_z(10000, 1) == 1)
         self.assertTrue(scores_to_z(1, 10000) == -1)

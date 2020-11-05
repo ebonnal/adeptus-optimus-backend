@@ -3,20 +3,35 @@ import math
 from .utils import *
 
 
-# Core Classes
+# Core engine logic
 class Options:
+    """
+    Notes about rules:
+    - Rerolls apply before modifiers
+    """
+    ones = "ones"
+    onestwos = "onestwos"
+    all = "all"
+    none = "none"
+
     def __init__(self,
-                 hit_modifier,
-                 wound_modifier):
+                 hit_modifier=0,
+                 wound_modifier=0,
+                 reroll_hits="none",
+                 reroll_wounds="none"):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
+        assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.all})
+        assert (reroll_wounds in {Options.none, Options.ones, Options.onestwos, Options.all})
 
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
+        self.reroll_hits = reroll_hits
+        self.reroll_wounds = reroll_wounds
 
     @staticmethod
     def empty():
-        return Options(0, 0)
+        return Options()
 
     @staticmethod
     def parse(options):
@@ -25,11 +40,10 @@ class Options:
         else:
             return Options(
                 hit_modifier=int(options["hit_modifier"]),
-                wound_modifier=int(options["wound_modifier"])
+                wound_modifier=int(options["wound_modifier"]),
+                reroll_hits=options["reroll_hits"],
+                reroll_wounds=options["reroll_wounds"]
             )
-
-
-Options.empty().hit_modifier = 0
 
 
 class Profile:
@@ -92,6 +106,30 @@ def get_hit_ratio(weapon):
 
 
 wound_ratios_cache = {}
+
+
+def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none):
+    assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.all})
+
+    necessary_roll = modified_necessary_roll
+    if modified_necessary_roll <= 1:
+        necessary_roll = 2  # roll of 1 always fails
+    if modified_necessary_roll >= 7:
+        if auto_success_on_6:
+            necessary_roll = 6  # roll of 6 always succeeds
+        else:
+            return 0
+    base_successes_ratio = (7 - necessary_roll) / 6
+    if reroll == Options.none:
+        return base_successes_ratio
+    elif reroll == Options.ones or (reroll == Options.onestwos and necessary_roll == 2):
+        return base_successes_ratio + base_successes_ratio / 6
+    elif reroll == Options.onestwos:
+        # guaranteed that necessary_roll > 2
+        return base_successes_ratio + 2*base_successes_ratio / 6
+    elif reroll == Options.all:
+        return base_successes_ratio + (1-base_successes_ratio)*base_successes_ratio#1 - (1 - base_successes_ratio)**2
+
 
 
 def get_wound_ratio(weapon, target):

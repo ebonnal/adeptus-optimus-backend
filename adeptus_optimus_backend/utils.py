@@ -90,10 +90,6 @@ def parse_roll(roll):
         return int(res.group(1))
 
 
-def float_eq(a, b, n_same_decimals=4, verbose=False):
-    if verbose: print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
-    return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
-
 
 def prob_by_roll_result(dice_expr):
     if dice_expr.dices_type is None:
@@ -115,17 +111,6 @@ def prob_by_roll_result(dice_expr):
         return roll_results_counts
 
 
-def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True):
-    necessary_roll = modified_necessary_roll
-    if modified_necessary_roll <= 1:
-        necessary_roll = 2  # roll of 1 always fails
-    if modified_necessary_roll >= 7:
-        if auto_success_on_6:
-            necessary_roll = 6  # roll of 6 always succeeds
-        else:
-            return 0
-    return (7 - necessary_roll) / 6
-
 
 def compute_necessary_wound_roll(f, e):
     if f >= 2 * e:
@@ -144,20 +129,3 @@ def compute_necessary_wound_roll(f, e):
 def get_avg_of_density(d):
     l = [float(v) * float(p) for v, p in d.items()]
     return sum(l)
-
-
-try:
-    # python version >= 3.8
-    from math import comb
-except:
-    # fallback requiring scipy
-    from scipy.special import comb
-
-
-def dispatch_density_key(previous_density_key, next_density_prob):
-    assert (type(previous_density_key) is int)
-    assert (previous_density_key >= 0)
-    assert (0 < next_density_prob and next_density_prob <= 1)
-    n = previous_density_key
-    p = next_density_prob
-    return {k: comb(n, k) * p ** k * (1 - p) ** (n - k) for k in range(0, n + 1)}
