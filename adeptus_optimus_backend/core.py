@@ -17,7 +17,7 @@ class Options:
     """
     ones = "ones"
     onestwos = "onestwos"
-    all = "all"
+    full = "full"
     none = "none"
 
     def __init__(self,
@@ -28,14 +28,13 @@ class Options:
                  dakka3="none"):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
-        assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.all})
-        assert (reroll_wounds in {Options.none, Options.ones, Options.onestwos, Options.all})
+        assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.full})
+        assert (reroll_wounds in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (dakka3 in {Options.none, 5, 6})
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
         self.reroll_hits = reroll_hits
         self.reroll_wounds = reroll_wounds
-
         self.dakka3 = dakka3
 
     @staticmethod
@@ -108,7 +107,7 @@ class Target:
 
 
 def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none, dakka3=Options.none):
-    assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.all})
+    assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.full})
     assert (dakka3 in {Options.none, 5, 6})
 
     necessary_roll = modified_necessary_roll
@@ -130,7 +129,7 @@ def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, rer
                     successes_ratio += 1 / 6 * f(True, dakka3_consumed)
                 elif reroll == Options.onestwos and i <= 2:
                     successes_ratio += 1 / 6 * f(True, dakka3_consumed)
-                elif reroll == Options.all:
+                elif reroll == Options.full:
                     successes_ratio += 1 / 6 * f(True, dakka3_consumed)
             if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
                 successes_ratio += 1 / 6 * f(reroll_consumed, True)
@@ -145,13 +144,14 @@ hit_ratios_cache = {}
 
 def get_hit_ratio(weapon):
     assert (isinstance(weapon, Weapon))
-    key = f"{weapon.hit}{weapon.options.hit_modifier}{weapon.options.reroll_hits}"
+    key = f"{weapon.hit}{weapon.options.hit_modifier}{weapon.options.reroll_hits}{weapon.options.dakka3}"
     hit_ratio = hit_ratios_cache.get(key, None)
     if hit_ratio is None:
         hit_ratio = 0
         for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
             hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.options.hit_modifier,
-                                                                 reroll=weapon.options.reroll_hits)
+                                                                 reroll=weapon.options.reroll_hits,
+                                                                 dakka3=weapon.options.dakka3)
         hit_ratios_cache[key] = hit_ratio
     return hit_ratio
 
@@ -418,30 +418,33 @@ def compute_heatmap(profile_a, profile_b):
     assert (isinstance(profile_b, Profile))
 
     res = {}
-    ws_ts_fnps = []
+    ts_ws_fnps = []
     for w, ts in zip(
-            [1, 2, 3, 4, 6, 8, 10, 12, 16],
+            [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 25],
             [
                 [2, 3, 4],
-                [2, 3, 4, 5],
-                [2, 3, 4, 5, 6],
-                [2, 3, 4, 5, 6],
-                [3, 4, 5, 6, 8],
-                [4, 5, 6, 8],
-                [5, 6, 8],
-                [6, 8],
-                [6, 8]
+                [3, 4, 5],
+                [4, 5, 6],
+                [4, 5, 6],
+                [5, 6],
+                [5, 6, 7],
+                [5, 6, 7],
+                [6, 7, 8],
+                [7, 8],
+                [7, 8],
+                [8]
             ]
     ):
+        print(ts)
         fnps = [7] if w > 6 else [7, 6, 5]
         for fnp in fnps:
             for t in ts:
-                ws_ts_fnps.append((t, w, fnp))
+                ts_ws_fnps.append((t, w, fnp))
 
-    ws_ts_fnps.sort(key=lambda e: e[2] * 10000 - e[0] * 100 - e[1])
-    ws_ts_fnps = list(map(lambda l: list(map(map_7_to_None, l)), ws_ts_fnps))
+    ts_ws_fnps.sort(key=lambda e: e[2] * 10000 - e[0] * 100 - e[1])
+    ts_ws_fnps = list(map(lambda l: [l[0], l[1], map_7_to_None(l[2])], ts_ws_fnps))
 
-    res["y"] = list(map(y_dims_to_str, ws_ts_fnps))
+    res["y"] = list(map(y_dims_to_str, ts_ws_fnps))
 
     svs = []
     for invu in [2, 3, 4, 5, 6, 7]:
@@ -451,7 +454,7 @@ def compute_heatmap(profile_a, profile_b):
     svs = list(map(lambda l: list(map(map_7_to_None, l)), svs))
 
     res["x"] = list(map(x_dims_to_str, svs))
-
+    print(ts_ws_fnps)
     # target independant
     exact_scores = \
         [
@@ -472,7 +475,7 @@ def compute_heatmap(profile_a, profile_b):
                 ]
                 for sv, invu in svs
             ]
-            for t, w, fnp in ws_ts_fnps
+            for t, w, fnp in ts_ws_fnps
         ]
 
     score_a_score_b_tuples = [
