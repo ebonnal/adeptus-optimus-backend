@@ -106,37 +106,51 @@ class Target:
         self.w = w
 
 
-def compute_successes_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none, dakka3=Options.none):
+success_ratios_cache = {}
+
+
+def _visit_hit_tree(reroll_consumed, dakka3_consumed, necessary_roll, reroll, dakka3):
+    successes_ratio = 0
+    for i in range(1, 7):
+        if i >= necessary_roll:
+            successes_ratio += 1 / 6
+        elif not reroll_consumed and reroll != Options.none:
+            if reroll == Options.ones and i == 1:
+                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+            elif reroll == Options.onestwos and i <= 2:
+                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+            elif reroll == Options.full:
+                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+        if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
+            successes_ratio += 1 / 6 * _visit_hit_tree(reroll_consumed, True, necessary_roll, reroll, dakka3)
+    return successes_ratio
+
+
+def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none, dakka3=Options.none):
     assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.full})
     assert (dakka3 in {Options.none, 5, 6})
+    key = f"{modified_necessary_roll}{auto_success_on_6}{reroll}{dakka3}"
+    success_ratio = success_ratios_cache.get(key, None)
+    if success_ratio is None:
+        necessary_roll = modified_necessary_roll
+        if modified_necessary_roll <= 1:
+            necessary_roll = 2  # roll of 1 always fails
+        if modified_necessary_roll >= 7:
+            if auto_success_on_6:
+                necessary_roll = 6  # roll of 6 always succeeds
+            else:
+                return 0
 
-    necessary_roll = modified_necessary_roll
-    if modified_necessary_roll <= 1:
-        necessary_roll = 2  # roll of 1 always fails
-    if modified_necessary_roll >= 7:
-        if auto_success_on_6:
-            necessary_roll = 6  # roll of 6 always succeeds
-        else:
-            return 0
+        success_ratio = _visit_hit_tree(
+            reroll_consumed=reroll == Options.none,
+            dakka3_consumed=dakka3 == Options.none,
+            necessary_roll=necessary_roll,
+            reroll=reroll,
+            dakka3=dakka3
+        )
 
-    def f(reroll_consumed, dakka3_consumed):
-        successes_ratio = 0
-        for i in range(1, 7):
-            if i >= necessary_roll:
-                successes_ratio += 1 / 6
-            elif not reroll_consumed and reroll != Options.none:
-                if reroll == Options.ones and i == 1:
-                    successes_ratio += 1 / 6 * f(True, dakka3_consumed)
-                elif reroll == Options.onestwos and i <= 2:
-                    successes_ratio += 1 / 6 * f(True, dakka3_consumed)
-                elif reroll == Options.full:
-                    successes_ratio += 1 / 6 * f(True, dakka3_consumed)
-            if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
-                successes_ratio += 1 / 6 * f(reroll_consumed, True)
-
-        return successes_ratio
-
-    return f(False, False)
+        success_ratios_cache[key] = success_ratio
+    return success_ratio
 
 
 hit_ratios_cache = {}
@@ -149,9 +163,9 @@ def get_hit_ratio(weapon):
     if hit_ratio is None:
         hit_ratio = 0
         for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
-            hit_ratio += prob_hit_roll * compute_successes_ratio(hit_roll - weapon.options.hit_modifier,
-                                                                 reroll=weapon.options.reroll_hits,
-                                                                 dakka3=weapon.options.dakka3)
+            hit_ratio += prob_hit_roll * get_success_ratio(hit_roll - weapon.options.hit_modifier,
+                                                           reroll=weapon.options.reroll_hits,
+                                                           dakka3=weapon.options.dakka3)
         hit_ratios_cache[key] = hit_ratio
     return hit_ratio
 
@@ -172,7 +186,7 @@ def get_wound_ratio(weapon, target):
     if wound_ratio is None:
         wound_ratio = 0
         for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
-            wound_ratio += compute_successes_ratio(
+            wound_ratio += get_success_ratio(
                 compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier,
                 reroll=weapon.options.reroll_wounds
             ) * prob_s_roll
@@ -195,7 +209,7 @@ def get_unsaved_wound_ratio(weapon, target):
             save_roll = target.sv + ap_roll
             if target.invu is not None:
                 save_roll = min(save_roll, target.invu)
-            save_fail_ratio = 1 - compute_successes_ratio(save_roll, auto_success_on_6=False)
+            save_fail_ratio = 1 - get_success_ratio(save_roll, auto_success_on_6=False)
             unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
         unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
 
@@ -342,7 +356,7 @@ def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds
         State.target_wounds = target_wounds
         State.n_unsaved_wounds_init = 16
         State.n_figs_slained_weighted_ratios = []
-        State.fnp_fail_ratio = 1 if target_fnp is None else 1 - compute_successes_ratio(target_fnp)
+        State.fnp_fail_ratio = 1 if target_fnp is None else 1 - get_success_ratio(target_fnp)
         State.start_target_wounds = target_wounds
         State.cache.reset()
 
@@ -435,7 +449,6 @@ def compute_heatmap(profile_a, profile_b):
                 [8]
             ]
     ):
-        print(ts)
         fnps = [7] if w > 6 else [7, 6, 5]
         for fnp in fnps:
             for t in ts:
@@ -454,7 +467,6 @@ def compute_heatmap(profile_a, profile_b):
     svs = list(map(lambda l: list(map(map_7_to_None, l)), svs))
 
     res["x"] = list(map(x_dims_to_str, svs))
-    print(ts_ws_fnps)
     # target independant
     exact_scores = \
         [
@@ -499,7 +511,6 @@ def compute_heatmap(profile_a, profile_b):
 
     res["ratios"] = [[scores_to_ratio(score_a, score_b) for score_a, score_b in line] for line in
                      score_a_score_b_tuples]
-    # print(res)
 
     # TODO: return 2 scores to be in hover log
     return res
