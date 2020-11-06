@@ -2,6 +2,17 @@ import re
 
 from time import time, sleep
 
+_is_dev_execution = False
+
+
+def is_dev_execution():
+    return _is_dev_execution
+
+
+def set_is_dev_execution(boolean):
+    global _is_dev_execution
+    _is_dev_execution = boolean
+
 
 def with_minimum_exec_time(seconds_min_exec_time, callable, seconds_step=0.1):
     start = time()
@@ -14,7 +25,8 @@ def with_minimum_exec_time(seconds_min_exec_time, callable, seconds_step=0.1):
 def with_timer(func):
     start = time()
     res = func()
-    print(f"Took {(time() - start) * 1000} ms")
+    if is_dev_execution():
+        print(f"Took {(time() - start) * 1000} ms")
     return res
 
 
@@ -90,7 +102,6 @@ def parse_roll(roll):
         return int(res.group(1))
 
 
-
 def prob_by_roll_result(dice_expr):
     if dice_expr.dices_type is None:
         return {dice_expr.n: 1}
@@ -109,7 +120,6 @@ def prob_by_roll_result(dice_expr):
         for key in roll_results_counts.keys():
             roll_results_counts[key] /= n_cases
         return roll_results_counts
-
 
 
 def compute_necessary_wound_roll(f, e):

@@ -2,9 +2,13 @@ import os
 import subprocess
 from time import time
 
-from adeptus_optimus_backend import ddos_tanking_treat_request
 from flask import Flask, request
 from flask.json import dumps
+
+from adeptus_optimus_backend import ddos_tanking_treat_request
+from adeptus_optimus_backend.utils import set_is_dev_execution
+
+set_is_dev_execution(True)
 
 # Flask
 app = Flask(__name__)

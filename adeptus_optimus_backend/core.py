@@ -106,7 +106,12 @@ class Target:
         self.w = w
 
 
+# Function runtime caches:
 success_ratios_cache = {}
+hit_ratios_cache = {}
+wound_ratios_cache = {}
+unsaved_wound_ratios_cache = {}
+slained_figs_ratio_per_unsaved_wound_cache = {}
 
 
 def _visit_hit_tree(reroll_consumed, dakka3_consumed, necessary_roll, reroll, dakka3):
@@ -153,9 +158,6 @@ def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Op
     return success_ratio
 
 
-hit_ratios_cache = {}
-
-
 def get_hit_ratio(weapon):
     assert (isinstance(weapon, Weapon))
     key = f"{weapon.hit}{weapon.options.hit_modifier}{weapon.options.reroll_hits}{weapon.options.dakka3}"
@@ -168,9 +170,6 @@ def get_hit_ratio(weapon):
                                                            dakka3=weapon.options.dakka3)
         hit_ratios_cache[key] = hit_ratio
     return hit_ratio
-
-
-wound_ratios_cache = {}
 
 
 def get_wound_ratio(weapon, target):
@@ -193,9 +192,6 @@ def get_wound_ratio(weapon, target):
         wound_ratios_cache[key] = wound_ratio
 
     return wound_ratio
-
-
-unsaved_wound_ratios_cache = {}
 
 
 def get_unsaved_wound_ratio(weapon, target):
@@ -339,9 +335,6 @@ def get_slained_figs_ratio(state_):
                     downstream = f
                 State.cache.add(state, downstream)
                 return downstream
-
-
-slained_figs_ratio_per_unsaved_wound_cache = {}
 
 
 def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds):
@@ -512,5 +505,12 @@ def compute_heatmap(profile_a, profile_b):
     res["ratios"] = [[scores_to_ratio(score_a, score_b) for score_a, score_b in line] for line in
                      score_a_score_b_tuples]
 
-    # TODO: return 2 scores to be in hover log
+    if is_dev_execution():
+        print(f"caches stats:")
+        print(f"\tsize of success_ratios_cache={len(success_ratios_cache)}")
+        print(f"\tsize of hit_ratios_cache={len(hit_ratios_cache)}")
+        print(f"\tsize of wound_ratios_cache={len(wound_ratios_cache)}")
+        print(f"\tsize of unsaved_wound_ratios_cache={len(unsaved_wound_ratios_cache)}")
+        print(f"\tsize of slained_figs_ratio_per_unsaved_wound_cache={len(slained_figs_ratio_per_unsaved_wound_cache)}")
+
     return res

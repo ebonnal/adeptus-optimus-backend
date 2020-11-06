@@ -2,7 +2,7 @@ import json
 import traceback
 from time import time
 
-from .utils import RequirementFailError, with_minimum_exec_time
+from .utils import RequirementFailError, with_minimum_exec_time, is_dev_execution
 from .core import compute_heatmap, Profile, Weapon
 
 
@@ -28,7 +28,8 @@ def parse_profile(letter, params):
 
 def parse_params(params):
     profile_a, profile_b = parse_profile("A", params), parse_profile("B", params)
-    print(f"Parsed {len(profile_a.weapons)} weapons for profile A and {len(profile_b.weapons)} for profile B.")
+    if is_dev_execution():
+        print(f"Parsed {len(profile_a.weapons)} weapons for profile A and {len(profile_b.weapons)} for profile B.")
     return profile_a, profile_b
 
 
@@ -52,16 +53,19 @@ def treat_request(request, allowed_origin):
 
     try:
         params = request.args.get('params')
-        print(params)
+        if is_dev_execution():
+            print("received params=", params)
         params = json.loads(params)
         try:
             response = compute_heatmap(*parse_params(params)), 200, headers
         except RequirementFailError as e:
-            response = {"msg": f"Bad input: {e}"}, 422, headers
+            response = {"msg": f"INVALID INPUT: {e}"}, 422, headers
     except Exception as e:
-        traceback.print_exc()
+        if is_dev_execution():
+            traceback.print_exc()
         response = {"msg": f"{type(e)}: {e}"}, 500, headers
-    print(f"Request processing took {time() - start_time} seconds")
+    if is_dev_execution():
+        print(f"Request processing took {time() - start_time} seconds")
     return response
 
 
