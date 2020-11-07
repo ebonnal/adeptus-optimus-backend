@@ -14,28 +14,34 @@ class Options:
       (which can also be rerolled if it's a 1). You just can't
       get another bonus attack from a bonus attack, or reroll
       the same hit roll again.
+    - if an attack inflicts mortal wounds in addition to the normal damage,
+      resolve the normal damage first.
     """
+    none = None
     ones = "ones"
     onestwos = "onestwos"
     full = "full"
-    none = "none"
 
     def __init__(self,
                  hit_modifier=0,
                  wound_modifier=0,
-                 reroll_hits="none",
-                 reroll_wounds="none",
-                 dakka3="none"):
+                 reroll_hits=None,
+                 reroll_wounds=None,
+                 dakka3=None,
+                 auto_wounds_on=None):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
         assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (reroll_wounds in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (dakka3 in {Options.none, 5, 6})
+        assert (auto_wounds_on in {Options.none, 5, 6})
+
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
         self.reroll_hits = reroll_hits
         self.reroll_wounds = reroll_wounds
         self.dakka3 = dakka3
+        self.auto_wounds_on = auto_wounds_on
 
     @staticmethod
     def empty():
@@ -49,9 +55,10 @@ class Options:
             return Options(
                 hit_modifier=int(options["hit_modifier"]),
                 wound_modifier=int(options["wound_modifier"]),
-                reroll_hits=options["reroll_hits"],
-                reroll_wounds=options["reroll_wounds"],
-                dakka3=Options.none if options["dakka3"] == Options.none else int(options["dakka3"])
+                reroll_hits= Options.none if options["reroll_hits"] == "none" else options["reroll_hits"],
+                reroll_wounds=Options.none if options["reroll_wounds"] == "none" else options["reroll_wounds"],
+                dakka3=Options.none if options["dakka3"] == "none" else int(options["dakka3"]),
+                auto_wounds_on=Options.none if options["auto_wounds_on"] == "none" else int(options["auto_wounds_on"])
             )
 
 
@@ -181,15 +188,25 @@ def get_wound_ratio(weapon, target):
     """
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    key = f"{weapon.s}{weapon.options.wound_modifier}{weapon.options.reroll_wounds}{target.t}"
+    key = f"{weapon.s}" \
+          f"{weapon.options.wound_modifier}" \
+          f"{weapon.options.reroll_wounds}" \
+          f"{target.t}" \
+          f"{weapon.options.auto_wounds_on}"
+
     wound_ratio = wound_ratios_cache.get(key, None)
     if wound_ratio is None:
         wound_ratio = 0
         for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
-            wound_ratio += get_success_ratio(
+            success_ratio = get_success_ratio(
                 compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier,
                 reroll=weapon.options.reroll_wounds
-            ) * prob_s_roll
+            )
+            if weapon.options.auto_wounds_on == Options.none:
+                wound_ratio += success_ratio * prob_s_roll
+            else:
+                wound_ratio += (weapon.options.auto_wounds_on - 1)/6 * success_ratio + \
+                               (7 - weapon.options.auto_wounds_on)/6  # auto wounds
         wound_ratios_cache[key] = wound_ratio
 
     return wound_ratio
