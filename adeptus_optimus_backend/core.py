@@ -52,10 +52,11 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
+            assert (len(options) == 6)
             return Options(
                 hit_modifier=int(options["hit_modifier"]),
                 wound_modifier=int(options["wound_modifier"]),
-                reroll_hits= Options.none if options["reroll_hits"] == "none" else options["reroll_hits"],
+                reroll_hits=Options.none if options["reroll_hits"] == "none" else options["reroll_hits"],
                 reroll_wounds=Options.none if options["reroll_wounds"] == "none" else options["reroll_wounds"],
                 dakka3=Options.none if options["dakka3"] == "none" else int(options["dakka3"]),
                 auto_wounds_on=Options.none if options["auto_wounds_on"] == "none" else int(options["auto_wounds_on"])
@@ -205,8 +206,8 @@ def get_wound_ratio(weapon, target):
             if weapon.options.auto_wounds_on == Options.none:
                 wound_ratio += success_ratio * prob_s_roll
             else:
-                wound_ratio += (weapon.options.auto_wounds_on - 1)/6 * success_ratio + \
-                               (7 - weapon.options.auto_wounds_on)/6  # auto wounds
+                wound_ratio += (weapon.options.auto_wounds_on - 1) / 6 * success_ratio + \
+                               (7 - weapon.options.auto_wounds_on) / 6  # auto wounds
         wound_ratios_cache[key] = wound_ratio
 
     return wound_ratio
