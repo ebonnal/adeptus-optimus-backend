@@ -55,10 +55,11 @@ class Test(unittest.TestCase):
                                  1 / 6 + 1 / 6 / 6))
         self.assertTrue(float_eq(get_success_ratio(8, True, Options.onestwos, 5),
                                  1 / 6 +  # direct success
+                                 2 / 6 * 1 / 6 +  # reroll -> success
                                  2 / 6 * 1 / 6 +  # dakka3 -> success
                                  2 / 6 * 2 / 6 * 1 / 6 +  # dakka3 -> reroll -> success
-                                 2 / 6 * 1 / 6 +  # reroll -> success
-                                 2 / 6 * 2 / 6 * 1 / 6  # reroll -> dakka3 -> success
+                                 2 / 6 * 2 / 6 * 1 / 6 +  # reroll -> dakka3 -> success
+                                 2 / 6 * 2 / 6 * 2 / 6 * 1 / 6  # reroll -> dakka3 -> reroll -> success
                                  ))
 
         self.assertTrue(float_eq(get_success_ratio(4, True, Options.onestwos, 5),
@@ -66,7 +67,8 @@ class Test(unittest.TestCase):
                                  2 / 6 * 3 / 6 +  # dakka3 -> success
                                  2 / 6 * 2 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
                                  2 / 6 * 3 / 6 +  # reroll -> success
-                                 2 / 6 * 2 / 6 * 3 / 6  # reroll -> dakka3 -> success
+                                 2 / 6 * 2 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
+                                 2 / 6 * 2 / 6 * 2 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
                                  ))
 
         self.assertTrue(float_eq(get_success_ratio(4, True, Options.full, 6),
@@ -74,7 +76,8 @@ class Test(unittest.TestCase):
                                  1 / 6 * 3 / 6 +  # dakka3 -> success
                                  1 / 6 * 3 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
                                  3 / 6 * 3 / 6 +  # reroll -> success
-                                 3 / 6 * 1 / 6 * 3 / 6  # reroll -> dakka3 -> success
+                                 3 / 6 * 1 / 6 * 3 / 6 + # reroll -> dakka3 -> success
+                                 3 / 6 * 1 / 6 * 3 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
                                  ))
 
     def test_engine_core(self):

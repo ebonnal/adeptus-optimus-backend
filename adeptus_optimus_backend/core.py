@@ -127,7 +127,8 @@ def _visit_hit_tree(reroll_consumed, dakka3_consumed, necessary_roll, reroll, da
             elif reroll == Options.full:
                 successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
         if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
-            successes_ratio += 1 / 6 * _visit_hit_tree(reroll_consumed, True, necessary_roll, reroll, dakka3)
+            # dakka result in a new dice roll that may be rerolled
+            successes_ratio += 1 / 6 * _visit_hit_tree(reroll == Options.none, True, necessary_roll, reroll, dakka3)
     return successes_ratio
 
 
