@@ -49,6 +49,7 @@ class DiceExpr:
     def __init__(self, n, dices_type=None):
         self.n = n
         self.dices_type = dices_type
+        require(dices_type in {None, 3, 6}, f"Dices used must be either D3 or D6, not D{dices_type}")
 
         if self.dices_type is None:
             self.avg = n
@@ -65,7 +66,7 @@ class DiceExpr:
 DiceExpr.star = DiceExpr(-1, None)
 
 
-def parse_dice_expr(d, complexity_threshold=16, raise_on_failure=False, allow_star=False):
+def parse_dice_expr(d, complexity_threshold=18, raise_on_failure=False, allow_star=False):
     assert (type(d) is str)
     groups = re.fullmatch(r"([1-9][0-9]*)?D([36])?|([0-9]+)", d)
     res = None
@@ -109,7 +110,11 @@ def parse_roll(roll):
         return int(res.group(1))
 
 
-def prob_by_roll_result(dice_expr):
+def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0):
+    """
+    :param reroll_if_less_than: dictates the reroll (reroll all dices) policy, 0 means a reroll never occurs
+    """
+    assert(reroll_if_less_than >= 0)
     if dice_expr.dices_type is None:
         return {dice_expr.n: 1}
     else:
@@ -124,9 +129,19 @@ def prob_by_roll_result(dice_expr):
 
         f(dice_expr.n, 0)
         n_cases = sum(roll_results_counts.values())
-        for key in roll_results_counts.keys():
-            roll_results_counts[key] /= n_cases
-        return roll_results_counts
+        prob_by_roll_result = {k: v / n_cases for k, v in roll_results_counts.items()}
+        if reroll_if_less_than > 0:
+            prob_by_roll_result_items_copy = list(prob_by_roll_result.items())[:]
+            # reset rerolled rolls results
+            for roll, _ in prob_by_roll_result_items_copy:
+                if roll < reroll_if_less_than:
+                    prob_by_roll_result[roll] = 0
+            # reach depth 2 nodes (reroll) participations
+            for roll, prob_roll in prob_by_roll_result_items_copy:
+                if roll < reroll_if_less_than:
+                    for r, prob_r in prob_by_roll_result_items_copy:
+                        prob_by_roll_result[r] += prob_roll*prob_r
+        return prob_by_roll_result
 
 
 def compute_necessary_wound_roll(f, e):
@@ -144,5 +159,4 @@ def compute_necessary_wound_roll(f, e):
 
 
 def get_avg_of_density(d):
-    l = [float(v) * float(p) for v, p in d.items()]
-    return sum(l)
+    return sum([float(v) * float(p) for v, p in d.items()])

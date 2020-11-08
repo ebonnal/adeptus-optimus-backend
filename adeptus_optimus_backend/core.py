@@ -25,6 +25,8 @@ class Options:
       in addition to the normal damage."
     - Smasha gun rule: " Instead of making a wound roll for this weapon, roll 2D6. If the result is equal to or greater
       than the target’s Toughness characteristic, the attack successfully wounds."
+    - SAG rule: "Before firing this weapon, roll once to determine the Strength of all its shots. If the result is 11+
+      each successful hit inflicts D3 mortal wounds on the target in addition to any normal damage"
     """
     none = None
     ones = "ones"
@@ -44,7 +46,8 @@ class Options:
                  auto_wounds_on=None,
                  is_blast=False,
                  auto_hit=False,
-                 wounds_by_2D6=False):
+                 wounds_by_2D6=False,
+                 reroll_damages=False):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
         assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.full})
@@ -54,6 +57,7 @@ class Options:
         assert (type(is_blast) is bool)
         assert (type(auto_hit) is bool)
         assert (type(wounds_by_2D6) is bool)
+        assert (type(reroll_damages) is bool)
 
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
@@ -64,6 +68,7 @@ class Options:
         self.is_blast = is_blast
         self.auto_hit = auto_hit
         self.wounds_by_2D6 = wounds_by_2D6
+        self.reroll_damages = reroll_damages
 
     @staticmethod
     def empty():
@@ -74,7 +79,7 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 9)
+            assert (len(options) == 10)
             return Options(
                 hit_modifier=int(options["hit_modifier"]),
                 wound_modifier=int(options["wound_modifier"]),
@@ -85,7 +90,9 @@ class Options:
                 is_blast=True if options["is_blast"] == "yes" else False if options["is_blast"] == "no" else None,
                 auto_hit=True if options["auto_hit"] == "yes" else False if options["auto_hit"] == "no" else None,
                 wounds_by_2D6=
-                True if options["wounds_by_2D6"] == "yes" else False if options["wounds_by_2D6"] == "no" else None
+                True if options["wounds_by_2D6"] == "yes" else False if options["wounds_by_2D6"] == "no" else None,
+                reroll_damages=
+                True if options["reroll_damages"] == "yes" else False if options["reroll_damages"] == "no" else None
             )
 
 
@@ -110,7 +117,7 @@ class Weapon:
     def __init__(self, hit, a, s, ap, d, options=Options.empty()):
         # prob by roll result: O(n*dice_type)
         self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
-        require(self.hit.dices_type is None, "Balistic/Weapon Skill cannot be a dice expression")
+        require(self.hit.dices_type is None, "Random Balistic/Weapon Skill is not allowed")
         self.a = parse_dice_expr(a, complexity_threshold=128, raise_on_failure=True)  # only one time 0(n)
         require(self.a.avg != 0, "Number of Attacks cannot be 0")
 
@@ -176,7 +183,7 @@ def get_n_attacks(weapon, target):
             if target.n_models <= 10:
                 n_attacks = sum(list(map(
                     lambda n_a_and_prob: max(3, n_a_and_prob[0]) * n_a_and_prob[1],
-                    prob_by_roll_result(weapon.a).items()
+                    get_prob_by_roll_result(weapon.a).items()
                 )))
             else:
                 n_attacks = weapon.a.n * weapon.a.dices_type
@@ -243,7 +250,7 @@ def get_hit_ratio(weapon):
             hit_ratio = 1
         else:
             hit_ratio = 0
-            for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
+            for hit_roll, prob_hit_roll in get_prob_by_roll_result(weapon.hit).items():
                 hit_ratio += prob_hit_roll * get_success_ratio(hit_roll - weapon.options.hit_modifier,
                                                                reroll=weapon.options.reroll_hits,
                                                                dakka3=weapon.options.dakka3)
@@ -270,11 +277,11 @@ def get_wound_ratio(weapon, target):
     if wound_ratio is None:
         wound_ratio = 0
         if weapon.options.wounds_by_2D6:
-            for roll, prob_roll in prob_by_roll_result(DiceExpr(2, 6)).items():
+            for roll, prob_roll in get_prob_by_roll_result(DiceExpr(2, 6)).items():
                 if roll >= target.t:
                     wound_ratio += prob_roll
         else:
-            for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
+            for s_roll, prob_s_roll in get_prob_by_roll_result(weapon.s).items():
                 success_ratio = get_success_ratio(
                     compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier,
                     reroll=weapon.options.reroll_wounds
@@ -296,7 +303,7 @@ def get_unsaved_wound_ratio(weapon, target):
     unsaved_wound_ratio = unsaved_wound_ratios_cache.get(key, None)
     if unsaved_wound_ratio is None:
         unsaved_wound_ratio = 0
-        for ap_roll, prob_ap_roll in prob_by_roll_result(weapon.ap).items():
+        for ap_roll, prob_ap_roll in get_prob_by_roll_result(weapon.ap).items():
             save_roll = target.sv + ap_roll
             if target.invu is not None:
                 save_roll = min(save_roll, target.invu)
@@ -340,6 +347,7 @@ class Cache:
 
 
 class State:
+    reroll_damages = None
     weapon_d = None
     target_wounds = None
     n_unsaved_wounds_init = None
@@ -401,13 +409,30 @@ def get_slained_figs_ratio(state_):
                 if cached_downstream is None or cached_res_n_unsaved_wounds_left < state.n_unsaved_wounds_left:
                     # consume a wound
                     # random doms handling
+                    if State.reroll_damages:
+                        # Damages reroll policy: reroll if
+                        # - roll < expected damage roll and
+                        # - roll < expected_required_damages_to_destroy_current_target
+                        # TODO improve, especially with mortal wounds, and take into account that damages in excess are lost
+                        # TODO  ... for expected value calculus
+                        expected_required_damages_to_destroy_current_target = state.remaining_target_wounds/State.fnp_fail_ratio
+                        prob_by_roll_result = get_prob_by_roll_result(
+                            State.weapon_d,
+                            reroll_if_less_than=min(
+                                expected_required_damages_to_destroy_current_target,
+                                State.weapon_d.avg  #
+                            )
+                        )
+                    else:
+                        prob_by_roll_result = get_prob_by_roll_result(State.weapon_d)
+
                     res = [
                         prob_d *
                         get_slained_figs_ratio(State(n_unsaved_wounds_left=state.n_unsaved_wounds_left - 1,
                                                      current_wound_n_damages_left=d,
                                                      n_figs_slained_so_far=state.n_figs_slained_so_far,
                                                      remaining_target_wounds=state.remaining_target_wounds))
-                        for d, prob_d in prob_by_roll_result(State.weapon_d).items()
+                        for d, prob_d in prob_by_roll_result.items()
                     ]
                     downstream = sum(res)
                     State.cache.add(state, downstream)
@@ -432,7 +457,7 @@ def get_slained_figs_ratio(state_):
                 return downstream
 
 
-def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds):
+def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds, reroll_damages=False):
     """
     n_unsaved_wounds_init=32: 14 sec, res prec +-0.02 compared to 64
     n_unsaved_wounds_init=10:  5 sec, res prec +-0.1  compared to 64
@@ -440,6 +465,7 @@ def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds
     key = f"{weapon_d}{target_fnp}{target_wounds}"
     slained_figs_ratio_per_unsaved_wound = slained_figs_ratio_per_unsaved_wound_cache.get(key, None)
     if slained_figs_ratio_per_unsaved_wound is None:
+        State.reroll_damages = reroll_damages
         State.weapon_d = weapon_d
         State.target_wounds = target_wounds
         State.n_unsaved_wounds_init = 16

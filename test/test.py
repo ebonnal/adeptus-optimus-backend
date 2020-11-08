@@ -89,16 +89,8 @@ class Test(unittest.TestCase):
                                         "auto_wounds_on": "none",
                                         "is_blast": "no",
                                         "auto_hit": "no",
-                                        "wounds_by_2D6": "no"}).wound_modifier, 0)
-        self.assertEqual(Options.parse({"hit_modifier": "0",
-                                        "wound_modifier": "0",
-                                        "reroll_hits": "none",
-                                        "reroll_wounds": "none",
-                                        "dakka3": "none",
-                                        "auto_wounds_on": "none",
-                                        "is_blast": "no",
-                                        "auto_hit": "no",
-                                        "wounds_by_2D6": "no"}).hit_modifier, 0)
+                                        "wounds_by_2D6": "no",
+                                        "reroll_damages": "no"}).hit_modifier, 0)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
@@ -349,11 +341,44 @@ class Test(unittest.TestCase):
         self.assertTrue(not float_eq(0.3333, 0.334, 2))
         self.assertTrue(not float_eq(0.03333, 0.0334, 2))
 
-        self.assertTrue(prob_by_roll_result(parse_dice_expr("D3")) == {1: 1 / 3, 2: 1 / 3, 3: 1 / 3})
-        self.assertTrue(prob_by_roll_result(parse_dice_expr("7")) == {7: 1})
-        self.assertTrue(float_eq(1, sum(prob_by_roll_result(parse_dice_expr("2D6")).values())))
+        self.assertTrue(get_prob_by_roll_result(parse_dice_expr("D3")) == {1: 1 / 3, 2: 1 / 3, 3: 1 / 3})
+        self.assertTrue(get_prob_by_roll_result(parse_dice_expr("7")) == {7: 1})
+        self.assertTrue(float_eq(1, sum(get_prob_by_roll_result(parse_dice_expr("2D6")).values())))
         self.assertTrue(
-            prob_by_roll_result(parse_dice_expr("2D6")) == {2: 1 / 36, 3: 2 / 36, 4: 3 / 36, 5: 4 / 36, 6: 5 / 36,
-                                                            7: 6 / 36, 8: 5 / 36, 9: 4 / 36, 10: 3 / 36, 11: 2 / 36,
-                                                            12: 1 / 36})
+            get_prob_by_roll_result(parse_dice_expr("2D6")) == {2: 1 / 36, 3: 2 / 36, 4: 3 / 36, 5: 4 / 36, 6: 5 / 36,
+                                                                7: 6 / 36, 8: 5 / 36, 9: 4 / 36, 10: 3 / 36, 11: 2 / 36,
+                                                                12: 1 / 36})
         self.assertEqual(f"{DiceExpr(2, 3)}", "2D3")
+
+        # get_prob_by_roll_result with reroll_if_less_than
+        self.assertTrue(float_eq(
+            sum(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=7).values()),
+            1
+        ))
+        self.assertTrue(float_eq(
+            get_prob_by_roll_result(parse_dice_expr("3D6", raise_on_failure=True), reroll_if_less_than=4)[3],
+            1 / (6 ** 3) ** 2
+        ))
+        # when expected value is in events, reroll if "less" or "less or equal to" it is equivalent
+        self.assertTrue(float_eq(
+            get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=7)),
+            get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=8))
+        ))
+        self.assertTrue(float_eq(
+            get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("D3"), reroll_if_less_than=2)),
+            get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("D3"), reroll_if_less_than=3))
+        ))
+        # reroll if roll <= expected value is optimum
+        for reroll_if_less_than in range(0, 13):
+            self.assertLess(
+                get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=reroll_if_less_than)),
+                1.0000001*get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=7))
+            )
+
+        # reroll is always better than nothing
+        for reroll_if_less_than in range(3, 13):
+            self.assertLess(
+                get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=0)),
+                1.0000001*get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=reroll_if_less_than))
+            )
+
