@@ -86,13 +86,15 @@ class Test(unittest.TestCase):
                                         "reroll_hits": "none",
                                         "reroll_wounds": "none",
                                         "dakka3": "none",
-                                        "auto_wounds_on": "none"}).wound_modifier, 0)
+                                        "auto_wounds_on": "none",
+                                        "is_blast": "no"}).wound_modifier, 0)
         self.assertEqual(Options.parse({"hit_modifier": "0",
                                         "wound_modifier": "0",
                                         "reroll_hits": "none",
                                         "reroll_wounds": "none",
                                         "dakka3": "none",
-                                        "auto_wounds_on": "none"}).hit_modifier, 0)
+                                        "auto_wounds_on": "none",
+                                        "is_blast": "no"}).hit_modifier, 0)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
@@ -163,6 +165,30 @@ class Test(unittest.TestCase):
                 Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0)), t,
                 None,
                 None))
+        # blast on 11+
+        self.assertTrue(
+            get_n_attacks(
+                Weapon(hit="4", a="2D6", s="4", ap="D6", d="D6", options=Options(is_blast=True)),
+                Target(t=4, sv=6, n_models=11)
+            ) ==
+            get_n_attacks(
+                Weapon(hit="4", a="4D3", s="4", ap="D6", d="D6", options=Options(is_blast=True)),
+                Target(t=4, sv=6, n_models=11)
+            ) == 12
+        )
+        # blast on 6-10 models
+        self.assertTrue(
+            get_n_attacks(
+                Weapon(hit="4", a="2D3", s="4", ap="D6", d="D6", options=Options(is_blast=True)),
+                Target(t=4, sv=6, n_models=10)
+            ) == 3 * 1 / 9 + 3 * 2 / 9 + 4 * 3 / 9 + 5 * 2 / 9 + 6 * 1 / 9
+        )
+        self.assertTrue(
+            get_n_attacks(
+                Weapon(hit="4", a="D3", s="4", ap="D6", d="D6", options=Options(is_blast=True)),
+                Target(t=4, sv=6, n_models=6)
+            ) == 3
+        )
         # hit on 4+ and auto wound at 5+ == hit at 4+ and wound_modifier +1: 2/6+4/6*3/6 == (3+1)/6 == 2/3
         self.assertTrue(
             get_wound_ratio(
@@ -172,7 +198,7 @@ class Test(unittest.TestCase):
             get_wound_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wound_modifier=+1)),
                 Target(t=4, sv=6)
-            ) == 2/3
+            ) == 2 / 3
         )
         # Assert DakkaDakkaDakka and 1s reroll is the same
         self.assertTrue(float_eq(

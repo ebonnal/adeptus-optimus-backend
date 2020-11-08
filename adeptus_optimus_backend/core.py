@@ -16,11 +16,18 @@ class Options:
       the same hit roll again.
     - if an attack inflicts mortal wounds in addition to the normal damage,
       resolve the normal damage first.
+    - Blast weapons, when applied against 6-10 models, "always makes a minimum of 3 attacks."
+      This does not mean each die you roll can't roll lower than 3.
+      It means the total result of all the weapon's dice to determine the number of attacks can't be lower than 3.
     """
     none = None
     ones = "ones"
     onestwos = "onestwos"
     full = "full"
+
+    n_models_1to5 = 1
+    n_models_6to10 = 6
+    n_models_11_plus = 11
 
     def __init__(self,
                  hit_modifier=0,
@@ -28,13 +35,15 @@ class Options:
                  reroll_hits=None,
                  reroll_wounds=None,
                  dakka3=None,
-                 auto_wounds_on=None):
+                 auto_wounds_on=None,
+                 is_blast=False):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
         assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (reroll_wounds in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (dakka3 in {Options.none, 5, 6})
         assert (auto_wounds_on in {Options.none, 5, 6})
+        assert (type(is_blast) is bool)
 
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
@@ -42,6 +51,7 @@ class Options:
         self.reroll_wounds = reroll_wounds
         self.dakka3 = dakka3
         self.auto_wounds_on = auto_wounds_on
+        self.is_blast = is_blast
 
     @staticmethod
     def empty():
@@ -52,14 +62,15 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 6)
+            assert (len(options) == 7)
             return Options(
                 hit_modifier=int(options["hit_modifier"]),
                 wound_modifier=int(options["wound_modifier"]),
                 reroll_hits=Options.none if options["reroll_hits"] == "none" else options["reroll_hits"],
                 reroll_wounds=Options.none if options["reroll_wounds"] == "none" else options["reroll_wounds"],
                 dakka3=Options.none if options["dakka3"] == "none" else int(options["dakka3"]),
-                auto_wounds_on=Options.none if options["auto_wounds_on"] == "none" else int(options["auto_wounds_on"])
+                auto_wounds_on=Options.none if options["auto_wounds_on"] == "none" else int(options["auto_wounds_on"]),
+                is_blast=True if options["is_blast"] == "yes" else False if options["is_blast"] == "no" else None
             )
 
 
@@ -79,6 +90,8 @@ class Profile:
 
 
 class Weapon:
+    at_least_one_blast_weapon = False
+
     def __init__(self, hit, a, s, ap, d, options=Options.empty()):
         # prob by roll result: O(n*dice_type)
         self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
@@ -91,13 +104,15 @@ class Weapon:
         self.d = parse_dice_expr(d, complexity_threshold=6, raise_on_failure=True)  # exponential exponential compl
         require(self.d.avg != 0, "Damage cannot be 0")
         self.options = Options.parse(options)
-
-        self.avg_attack = self.a.avg
+        require(not self.options.is_blast or self.a.dices_type is not None,
+                f"Cannot activate blast option with a non random attack characteristic: {self.a}")
+        if self.options.is_blast:
+            Weapon.at_least_one_blast_weapon = True
         self.hit_ratio = get_hit_ratio(self)
 
 
 class Target:
-    def __init__(self, t, sv=6, invu=None, fnp=None, w=1):
+    def __init__(self, t, sv=6, invu=None, fnp=None, w=1, n_models=1):
         assert (invu is None or (type(invu) is int and invu > 0 and invu <= 6))
         self.invu = invu
 
@@ -113,13 +128,42 @@ class Target:
         assert (type(w) is int and w > 0)
         self.w = w
 
+        assert (type(n_models) is int and n_models > 0)
+        self.n_models = n_models
+
 
 # Function runtime caches:
 success_ratios_cache = {}
+n_attacks_cache = {}
 hit_ratios_cache = {}
 wound_ratios_cache = {}
 unsaved_wound_ratios_cache = {}
 slained_figs_ratio_per_unsaved_wound_cache = {}
+
+
+def get_n_attacks(weapon, target):
+    assert (isinstance(weapon, Weapon))
+    assert (isinstance(target, Target))
+    if not weapon.options.is_blast or target.n_models <= 5:
+        key = f"{weapon.a}"
+    else:
+        key = f"{weapon.a}{weapon.options.is_blast}{target.n_models}"
+
+    n_attacks = n_attacks_cache.get(key, None)
+    if n_attacks is None:
+        if not weapon.options.is_blast or target.n_models <= 5:
+            n_attacks = weapon.a.avg
+        else:
+            if target.n_models <= 10:
+                n_attacks = sum(list(map(
+                    lambda n_a_and_prob: max(3, n_a_and_prob[0]) * n_a_and_prob[1],
+                    prob_by_roll_result(weapon.a).items()
+                )))
+            else:
+                n_attacks = weapon.a.n * weapon.a.dices_type
+
+        n_attacks_cache[key] = n_attacks
+    return n_attacks
 
 
 def _visit_hit_tree(reroll_consumed, dakka3_consumed, necessary_roll, reroll, dakka3):
@@ -425,7 +469,16 @@ def scores_to_z(score_a, score_b):
 
 
 def y_dims_to_str(l):
-    return f"""T:{l[0]}, W:{l[1]}, fnp:{"-" if l[2] is None else f"{l[2]}+"}"""
+    show_n_models = Weapon.at_least_one_blast_weapon
+    if show_n_models:
+        n_models_label = f"n°models:{map_n_models_to_label(l[3])}, "
+    else:
+        n_models_label = ""
+    return f"""{n_models_label}fnp:{"-" if l[2] is None else f"{l[2]}+"}, T:{l[0]}, W:{l[1]}, """
+
+
+def x_dims_to_str(l):
+    return f"""Sv:{"-" if l[0] is None else f"{l[0]}+"}, invu:{"-" if l[1] is None else f"{l[1]}+"}"""
 
 
 def scores_to_ratio(score_a, score_b):
@@ -435,8 +488,15 @@ def scores_to_ratio(score_a, score_b):
         return round(score_b / score_a, 2)
 
 
-def x_dims_to_str(l):
-    return f"""Sv:{"-" if l[0] is None else f"{l[0]}+"}, invu:{"-" if l[1] is None else f"{l[1]}+"}"""
+def map_n_models_to_label(n_models):
+    if n_models == 1:
+        return "1to5"
+    elif n_models == 6:
+        return "6to10"
+    elif n_models == 11:
+        return "11+"
+    else:
+        raise RuntimeError
 
 
 def compute_heatmap(profile_a, profile_b):
@@ -444,12 +504,12 @@ def compute_heatmap(profile_a, profile_b):
     assert (isinstance(profile_b, Profile))
 
     res = {}
-    ts_ws_fnps = []
+    ts_ws_fnps_nm = []
     for w, ts in zip(
             [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 25],
             [
                 [2, 3, 4],
-                [3, 4, 5],
+                [4, 5],
                 [4, 5, 6],
                 [4, 5, 6],
                 [5, 6],
@@ -461,15 +521,28 @@ def compute_heatmap(profile_a, profile_b):
                 [8]
             ]
     ):
-        fnps = [7] if w > 6 else [7, 6, 5]
+        fnps = [7] if w > 5 else [7, 6, 5]
+
+        if Weapon.at_least_one_blast_weapon:
+            if w > 2:
+                ns_models = [Options.n_models_1to5]
+            elif w == 2:
+                ns_models = [Options.n_models_1to5, Options.n_models_6to10]
+            else:
+                ns_models = [Options.n_models_1to5, Options.n_models_6to10, Options.n_models_11_plus]
+        else:
+            ns_models = [Options.n_models_1to5]
+
         for fnp in fnps:
             for t in ts:
-                ts_ws_fnps.append((t, w, fnp))
+                for n_models in ns_models:
+                    ts_ws_fnps_nm.append((t, w, fnp, n_models))
 
-    ts_ws_fnps.sort(key=lambda e: e[2] * 10000 - e[0] * 100 - e[1])
-    ts_ws_fnps = list(map(lambda l: [l[0], l[1], map_7_to_None(l[2])], ts_ws_fnps))
+    # n_models then fnp, then toughness, then wounds
+    ts_ws_fnps_nm.sort(key=lambda e: e[2] * 10000 - e[3] * 1000000 - e[0] * 100 - e[1])
+    ts_ws_fnps_nm = list(map(lambda l: [l[0], l[1], map_7_to_None(l[2]), l[3]], ts_ws_fnps_nm))
 
-    res["y"] = list(map(y_dims_to_str, ts_ws_fnps))
+    res["y"] = list(map(y_dims_to_str, ts_ws_fnps_nm))
 
     svs = []
     for invu in [2, 3, 4, 5, 6, 7]:
@@ -479,27 +552,35 @@ def compute_heatmap(profile_a, profile_b):
     svs = list(map(lambda l: list(map(map_7_to_None, l)), svs))
 
     res["x"] = list(map(x_dims_to_str, svs))
-    # target independant
+
+    targets_matrix = [
+        [
+            Target(t, sv, invu=invu, fnp=fnp, w=w, n_models=n_models)
+            for sv, invu in svs
+        ]
+        for t, w, fnp, n_models in ts_ws_fnps_nm
+    ]
+
     exact_scores = \
         [
             [
                 [
                     [score_weapon_on_target(
                         weapon_a,
-                        Target(t, sv, invu=invu, fnp=fnp, w=w),
-                        weapon_a.avg_attack,
+                        target,
+                        get_n_attacks(weapon_a, target),
                         weapon_a.hit_ratio
                     ) for weapon_a in profile_a.weapons],
                     [score_weapon_on_target(
                         weapon_b,
-                        Target(t, sv, invu=invu, fnp=fnp, w=w),
-                        weapon_b.avg_attack,
+                        target,
+                        get_n_attacks(weapon_b, target),
                         weapon_b.hit_ratio
                     ) for weapon_b in profile_b.weapons]
                 ]
-                for sv, invu in svs
+                for target in line
             ]
-            for t, w, fnp in ts_ws_fnps
+            for line in targets_matrix
         ]
 
     score_a_score_b_tuples = [
@@ -527,6 +608,7 @@ def compute_heatmap(profile_a, profile_b):
     if is_dev_execution():
         print(f"caches stats:")
         print(f"\tsize of success_ratios_cache={len(success_ratios_cache)}")
+        print(f"\tsize of n_attacks_cache={len(n_attacks_cache)}")
         print(f"\tsize of hit_ratios_cache={len(hit_ratios_cache)}")
         print(f"\tsize of wound_ratios_cache={len(wound_ratios_cache)}")
         print(f"\tsize of unsaved_wound_ratios_cache={len(unsaved_wound_ratios_cache)}")

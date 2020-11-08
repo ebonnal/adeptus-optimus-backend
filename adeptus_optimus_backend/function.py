@@ -27,6 +27,7 @@ def parse_profile(letter, params):
 
 
 def parse_params(params):
+    Weapon.at_least_one_blast_weapon = False
     profile_a, profile_b = parse_profile("A", params), parse_profile("B", params)
     if is_dev_execution():
         print(f"Parsed {len(profile_a.weapons)} weapons for profile A and {len(profile_b.weapons)} for profile B.")
