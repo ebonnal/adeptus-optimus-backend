@@ -44,6 +44,8 @@ def require(predicate, error_message):
 
 
 class DiceExpr:
+    star = None
+
     def __init__(self, n, dices_type=None):
         self.n = n
         self.dices_type = dices_type
@@ -60,24 +62,29 @@ class DiceExpr:
             return f"{self.n if self.n > 1 else ''}D{self.dices_type}"
 
 
-def parse_dice_expr(d, complexity_threshold=16, raise_on_failure=False):
+DiceExpr.star = DiceExpr(-1, None)
+
+
+def parse_dice_expr(d, complexity_threshold=16, raise_on_failure=False, allow_star=False):
     assert (type(d) is str)
     groups = re.fullmatch(r"([1-9][0-9]*)?D([36])?|([0-9]+)", d)
     res = None
     invalidity_details = ""
     try:
-
-        dices_type = int(groups.group(2))
-        # at this point dices type is known
-        if groups.group(1) is not None and int(groups.group(1)) == 1:
-            res = None  # 1D6 is not canonical, should enter D6
-            invalidity_details = f"must be noted 'D{dices_type}'"
+        if d == "*" and allow_star:
+            res = DiceExpr.star
         else:
-            if groups.group(1) is None:
-                n_dices = 1
+            dices_type = int(groups.group(2))
+            # at this point dices type is known
+            if groups.group(1) is not None and int(groups.group(1)) == 1:
+                res = None  # 1D6 is not canonical, should enter D6
+                invalidity_details = f"must be noted 'D{dices_type}'"
             else:
-                n_dices = int(groups.group(1))
-            res = DiceExpr(n_dices, dices_type)
+                if groups.group(1) is None:
+                    n_dices = 1
+                else:
+                    n_dices = int(groups.group(1))
+                res = DiceExpr(n_dices, dices_type)
 
     except TypeError:
         try:

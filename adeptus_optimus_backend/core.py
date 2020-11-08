@@ -113,14 +113,18 @@ class Weapon:
         require(self.hit.dices_type is None, "Balistic/Weapon Skill cannot be a dice expression")
         self.a = parse_dice_expr(a, complexity_threshold=128, raise_on_failure=True)  # only one time 0(n)
         require(self.a.avg != 0, "Number of Attacks cannot be 0")
-        self.s = parse_dice_expr(s, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
-        require(self.s.avg != 0, "Strength cannot be 0")
+
         self.ap = parse_dice_expr(ap, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
         self.d = parse_dice_expr(d, complexity_threshold=6, raise_on_failure=True)  # exponential exponential compl
         require(self.d.avg != 0, "Damage cannot be 0")
         self.options = Options.parse(options)
         require(not self.options.is_blast or self.a.dices_type is not None,
                 f"Cannot activate blast option with a non random attack characteristic: {self.a}")
+        self.s = parse_dice_expr(s,
+                                 complexity_threshold=12,
+                                 raise_on_failure=True,
+                                 allow_star=self.options.wounds_by_2D6)  # per each target O(n*dice_type)
+        require(self.s.avg != 0, "Strength cannot be 0")
         if self.options.is_blast:
             Weapon.at_least_one_blast_weapon = True
         self.hit_ratio = get_hit_ratio(self)
