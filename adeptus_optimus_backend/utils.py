@@ -53,8 +53,13 @@ class DiceExpr:
 
         if self.dices_type is None:
             self.avg = n
+            self.min = n
+            self.max = n
         else:
             self.avg = n * (self.dices_type + 1) / 2
+            self.min = n
+            self.max = n * self.dices_type
+
 
     def __str__(self):
         if self.dices_type is None:
@@ -110,38 +115,45 @@ def parse_roll(roll):
         return int(res.group(1))
 
 
+prob_by_roll_result_cache = {}
+
+
 def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0):
     """
     :param reroll_if_less_than: dictates the reroll (reroll all dices) policy, 0 means a reroll never occurs
     """
-    assert(reroll_if_less_than >= 0)
-    if dice_expr.dices_type is None:
-        return {dice_expr.n: 1}
-    else:
-        roll_results_counts = {}
+    assert (reroll_if_less_than >= 0)
+    key = f"{dice_expr}{reroll_if_less_than}"
+    prob_by_roll_result = prob_by_roll_result_cache.get(key, None)
+    if prob_by_roll_result is None:
+        if dice_expr.dices_type is None:
+            prob_by_roll_result = {dice_expr.n: 1}
+        else:
+            roll_results_counts = {}
 
-        def f(n, current_sum):
-            if n == 0:
-                roll_results_counts[current_sum] = roll_results_counts.get(current_sum, 0) + 1
-            else:
-                for i in range(1, dice_expr.dices_type + 1):
-                    f(n - 1, current_sum + i)
+            def f(n, current_sum):
+                if n == 0:
+                    roll_results_counts[current_sum] = roll_results_counts.get(current_sum, 0) + 1
+                else:
+                    for i in range(1, dice_expr.dices_type + 1):
+                        f(n - 1, current_sum + i)
 
-        f(dice_expr.n, 0)
-        n_cases = sum(roll_results_counts.values())
-        prob_by_roll_result = {k: v / n_cases for k, v in roll_results_counts.items()}
-        if reroll_if_less_than > 0:
-            prob_by_roll_result_items_copy = list(prob_by_roll_result.items())[:]
-            # reset rerolled rolls results
-            for roll, _ in prob_by_roll_result_items_copy:
-                if roll < reroll_if_less_than:
-                    prob_by_roll_result[roll] = 0
-            # reach depth 2 nodes (reroll) participations
-            for roll, prob_roll in prob_by_roll_result_items_copy:
-                if roll < reroll_if_less_than:
-                    for r, prob_r in prob_by_roll_result_items_copy:
-                        prob_by_roll_result[r] += prob_roll*prob_r
-        return prob_by_roll_result
+            f(dice_expr.n, 0)
+            n_cases = sum(roll_results_counts.values())
+            prob_by_roll_result = {k: v / n_cases for k, v in roll_results_counts.items()}
+            if reroll_if_less_than > 0:
+                prob_by_roll_result_items_copy = list(prob_by_roll_result.items())[:]
+                # reset rerolled rolls results
+                for roll, _ in prob_by_roll_result_items_copy:
+                    if roll < reroll_if_less_than:
+                        prob_by_roll_result[roll] = 0
+                # reach depth 2 nodes (reroll) participations
+                for roll, prob_roll in prob_by_roll_result_items_copy:
+                    if roll < reroll_if_less_than:
+                        for r, prob_r in prob_by_roll_result_items_copy:
+                            prob_by_roll_result[r] += prob_roll * prob_r
+        prob_by_roll_result_cache[key] = prob_by_roll_result
+    return prob_by_roll_result
 
 
 def compute_necessary_wound_roll(f, e):

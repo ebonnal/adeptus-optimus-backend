@@ -13,26 +13,32 @@ def float_eq(a, b, n_same_decimals=8, verbose=False):
 class Test(unittest.TestCase):
 
     def test_doms_alloc(self):
+        # Damages reroll
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1, 3), 4, 100, False), 1/100))
+        self.assertTrue(float_eq(
+            get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1, 3), 4, 100, True),
+            0.5*(1/9+2*(1/3+1/9)+3*(1/3+1/9))/100
+        ))
         # FNP
-        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 6, 1), 5 / 6, 0))
-        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 5, 1), 4 / 6, 0))
-        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 4, 1), 0.5, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 6, 1, False), 5 / 6))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 5, 1, False), 4 / 6))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 4, 1, False), 0.5))
         # on W=2
-        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), None, 2), 0.5, 0))
-        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2), None, 2), 1, 0))
-        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2, 3), None, 2), 1, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), None, 2, False), 0.5))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2), None, 2, False), 1))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2, 3), None, 2, False), 1))
         # random doms
-        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1, 6), None, 35), 0.1, 0))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1, 6), None, 35, False), 0.1, 0))
         self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(
-            DiceExpr(1, 6), 4, 175), 0.01, 0)
+            DiceExpr(1, 6), 4, 175, False), 0.01, 0)
         )
 
         self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(
-            DiceExpr(1, 6), 5, 70), 2 / 3 * 3.5 / 70, 0)
+            DiceExpr(1, 6), 5, 70, False), 2 / 3 * 3.5 / 70)
         )
         # lost damages
         self.assertTrue(
-            float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6), 0.5, 0))
+            float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6, reroll_damages=False), 0.5))
 
     def test_compute_successes_ratio(self):
         self.assertTrue(float_eq(get_success_ratio(8, True, Options.none), 1 / 6))
@@ -95,11 +101,11 @@ class Test(unittest.TestCase):
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) ==
-                        get_slained_figs_ratio_per_unsaved_wound(DiceExpr(3), None, 5))
+                        get_slained_figs_ratio_per_unsaved_wound(DiceExpr(3), None, 5, False))
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) ==
-                        get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2), None, 2))
+                        get_slained_figs_ratio_per_unsaved_wound(DiceExpr(2), None, 2, False))
         self.assertTrue(float_eq(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16),
-                                 get_slained_figs_ratio_per_unsaved_wound(DiceExpr(6), None, 16), 0))
+                                 get_slained_figs_ratio_per_unsaved_wound(DiceExpr(6), None, 16, False), 0))
         self.assertTrue(get_avg_figs_fraction_slained_per_unsaved_wound(
             Weapon("5", "10", "2D6", "1", "1"),
             Target(t=8, sv=6, invu=None, fnp=6, w=1)
@@ -315,23 +321,26 @@ class Test(unittest.TestCase):
         self.assertTrue(str(DiceExpr(5, 3)) == "5D3")
         self.assertTrue(str(DiceExpr(1, 6)) == "D6")
         self.assertTrue(str(DiceExpr(10, None)) == "10")
-        self.assertTrue(parse_dice_expr("4D3").avg == 8)
-        self.assertTrue(parse_dice_expr("5").avg == 5)
-        self.assertTrue(parse_dice_expr("D7") is None)
-        self.assertTrue(parse_dice_expr("0D6") is None)
-        self.assertTrue(parse_dice_expr("0").avg == 0)
-        self.assertTrue(parse_dice_expr("7D6") is None)
-        self.assertTrue(parse_dice_expr("D3").avg == 2)
-        self.assertTrue(parse_dice_expr("3D3").avg == 6)
-        self.assertTrue(parse_dice_expr("D6").avg == 3.5)
-        self.assertTrue(parse_dice_expr("1D6") is None)
-        self.assertTrue(parse_roll("1+") is None)
-        self.assertTrue(parse_roll("1+") is None)
-        self.assertTrue(parse_roll("2+") == 2)
-        self.assertTrue(parse_roll("3+") == 3)
-        self.assertTrue(parse_roll("6+") == 6)
-        self.assertTrue(parse_roll("7+") is None)
-        self.assertTrue(parse_roll("3") is None)
+        self.assertEqual(f"{DiceExpr(2, 3)}", "2D3")
+        self.assertEqual(parse_dice_expr("4D3").min, 4)
+        self.assertEqual(parse_dice_expr("4D3").avg, 8)
+        self.assertEqual(parse_dice_expr("4D3").max, 12)
+        self.assertEqual(parse_dice_expr("5").avg, 5)
+        self.assertIsNone(parse_dice_expr("D7"))
+        self.assertIsNone(parse_dice_expr("0D6"))
+        self.assertEqual(parse_dice_expr("0").avg, 0)
+        self.assertIsNone(parse_dice_expr("7D6"))
+        self.assertEqual(parse_dice_expr("D3").avg, 2)
+        self.assertEqual(parse_dice_expr("3D3").avg, 6)
+        self.assertEqual(parse_dice_expr("D6").avg, 3.5)
+        self.assertIsNone(parse_dice_expr("1D6"))
+        self.assertIsNone(parse_roll("1+"))
+        self.assertIsNone(parse_roll("1+"))
+        self.assertEqual(parse_roll("2+"), 2)
+        self.assertEqual(parse_roll("3+"), 3)
+        self.assertEqual(parse_roll("6+"), 6)
+        self.assertIsNone(parse_roll("7+"))
+        self.assertIsNone(parse_roll("3"))
 
         # assert(float_eq(0.025, 0.0249, 0))  # TODO: make it pass
 
@@ -348,7 +357,6 @@ class Test(unittest.TestCase):
             get_prob_by_roll_result(parse_dice_expr("2D6")) == {2: 1 / 36, 3: 2 / 36, 4: 3 / 36, 5: 4 / 36, 6: 5 / 36,
                                                                 7: 6 / 36, 8: 5 / 36, 9: 4 / 36, 10: 3 / 36, 11: 2 / 36,
                                                                 12: 1 / 36})
-        self.assertEqual(f"{DiceExpr(2, 3)}", "2D3")
 
         # get_prob_by_roll_result with reroll_if_less_than
         self.assertTrue(float_eq(

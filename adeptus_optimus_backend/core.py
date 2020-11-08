@@ -127,6 +127,8 @@ class Weapon:
         self.options = Options.parse(options)
         require(not self.options.is_blast or self.a.dices_type is not None,
                 f"Cannot activate blast option with a non random attack characteristic: {self.a}")
+        require(not self.options.reroll_damages or self.d.dices_type is not None,
+                f"Cannot activate damages reroll option with a non random Damage characteristic: {self.d}")
         self.s = parse_dice_expr(s,
                                  complexity_threshold=12,
                                  raise_on_failure=True,
@@ -410,31 +412,24 @@ def get_slained_figs_ratio(state_):
                     # consume a wound
                     # random doms handling
                     if State.reroll_damages:
-                        # Damages reroll policy: reroll if
-                        # - roll < expected damage roll and
-                        # - roll < expected_required_damages_to_destroy_current_target
-                        # TODO improve, especially with mortal wounds, and take into account that damages in excess are lost
-                        # TODO  ... for expected value calculus
-                        expected_required_damages_to_destroy_current_target = state.remaining_target_wounds/State.fnp_fail_ratio
-                        prob_by_roll_result = get_prob_by_roll_result(
-                            State.weapon_d,
-                            reroll_if_less_than=min(
-                                expected_required_damages_to_destroy_current_target,
-                                State.weapon_d.avg  #
-                            )
-                        )
+                        prob_by_roll_result_list = [
+                            get_prob_by_roll_result(State.weapon_d, reroll_if_less_than=roll)
+                            for roll in range(State.weapon_d.min, State.weapon_d.max)
+                        ]
                     else:
-                        prob_by_roll_result = get_prob_by_roll_result(State.weapon_d)
+                        prob_by_roll_result_list = [get_prob_by_roll_result(State.weapon_d)]
 
-                    res = [
-                        prob_d *
-                        get_slained_figs_ratio(State(n_unsaved_wounds_left=state.n_unsaved_wounds_left - 1,
-                                                     current_wound_n_damages_left=d,
-                                                     n_figs_slained_so_far=state.n_figs_slained_so_far,
-                                                     remaining_target_wounds=state.remaining_target_wounds))
-                        for d, prob_d in prob_by_roll_result.items()
-                    ]
-                    downstream = sum(res)
+                    downstream = max([
+                        sum([
+                            prob_d *
+                            get_slained_figs_ratio(State(n_unsaved_wounds_left=state.n_unsaved_wounds_left - 1,
+                                                         current_wound_n_damages_left=d,
+                                                         n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                                         remaining_target_wounds=state.remaining_target_wounds))
+                            for d, prob_d in prob_by_roll_result.items()
+                        ])
+                        for prob_by_roll_result in prob_by_roll_result_list])
+
                     State.cache.add(state, downstream)
                     return downstream
             else:
@@ -457,12 +452,12 @@ def get_slained_figs_ratio(state_):
                 return downstream
 
 
-def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds, reroll_damages=False):
+def get_slained_figs_ratio_per_unsaved_wound(weapon_d, target_fnp, target_wounds, reroll_damages):
     """
     n_unsaved_wounds_init=32: 14 sec, res prec +-0.02 compared to 64
     n_unsaved_wounds_init=10:  5 sec, res prec +-0.1  compared to 64
     """
-    key = f"{weapon_d}{target_fnp}{target_wounds}"
+    key = f"{weapon_d}{target_fnp}{target_wounds}{reroll_damages}"
     slained_figs_ratio_per_unsaved_wound = slained_figs_ratio_per_unsaved_wound_cache.get(key, None)
     if slained_figs_ratio_per_unsaved_wound is None:
         State.reroll_damages = reroll_damages
@@ -501,7 +496,7 @@ def get_avg_figs_fraction_slained_per_unsaved_wound(weapon, target):
     if weapon.d.dices_type is None and target.fnp is None:
         return exact_avg_figs_fraction_slained_per_unsaved_wound(d=weapon.d.n, w=target.w)
 
-    return get_slained_figs_ratio_per_unsaved_wound(weapon.d, target.fnp, target.w)
+    return get_slained_figs_ratio_per_unsaved_wound(weapon.d, target.fnp, target.w, weapon.options.reroll_damages)
 
 
 def score_weapon_on_target(w, t, avg_n_attacks, hit_ratio):
@@ -665,6 +660,7 @@ def compute_heatmap(profile_a, profile_b):
 
     if is_dev_execution():
         print(f"caches stats:")
+        print(f"\tsize of prob_by_roll_result_cache={len(prob_by_roll_result_cache)}")
         print(f"\tsize of success_ratios_cache={len(success_ratios_cache)}")
         print(f"\tsize of n_attacks_cache={len(n_attacks_cache)}")
         print(f"\tsize of hit_ratios_cache={len(hit_ratios_cache)}")
