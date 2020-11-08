@@ -6,7 +6,7 @@ from .utils import *
 # Core engine logic
 class Options:
     """
-    Notes about rules:
+    Notes & rules:
     - Rerolls apply before modifiers
     - Bad moon reroll & dakka3
       Also goes the other way. So if you roll a 1 then reroll to a 6,
@@ -19,6 +19,12 @@ class Options:
     - Blast weapons, when applied against 6-10 models, "always makes a minimum of 3 attacks."
       This does not mean each die you roll can't roll lower than 3.
       It means the total result of all the weapon's dice to determine the number of attacks can't be lower than 3.
+    - Marksman bolt carbine rule: "When resolving an attack made with this weapon, an unmodified hit roll of 6
+      automatically scores a hit and successfully wounds the target (do not make a wound roll)."
+    - Rail Riffle rule: "For each wound roll of 6+ made for this weapon, the target unit suffers a mortal wound
+      in addition to the normal damage."
+    - Smasha gun rule: " Instead of making a wound roll for this weapon, roll 2D6. If the result is equal to or greater
+      than the target’s Toughness characteristic, the attack successfully wounds."
     """
     none = None
     ones = "ones"
@@ -36,7 +42,8 @@ class Options:
                  reroll_wounds=None,
                  dakka3=None,
                  auto_wounds_on=None,
-                 is_blast=False):
+                 is_blast=False,
+                 auto_hit=False):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
         assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.full})
@@ -44,6 +51,7 @@ class Options:
         assert (dakka3 in {Options.none, 5, 6})
         assert (auto_wounds_on in {Options.none, 5, 6})
         assert (type(is_blast) is bool)
+        assert (type(auto_hit) is bool)
 
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
@@ -52,6 +60,7 @@ class Options:
         self.dakka3 = dakka3
         self.auto_wounds_on = auto_wounds_on
         self.is_blast = is_blast
+        self.auto_hit = auto_hit
 
     @staticmethod
     def empty():
@@ -62,7 +71,7 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 7)
+            assert (len(options) == 8)
             return Options(
                 hit_modifier=int(options["hit_modifier"]),
                 wound_modifier=int(options["wound_modifier"]),
@@ -70,7 +79,8 @@ class Options:
                 reroll_wounds=Options.none if options["reroll_wounds"] == "none" else options["reroll_wounds"],
                 dakka3=Options.none if options["dakka3"] == "none" else int(options["dakka3"]),
                 auto_wounds_on=Options.none if options["auto_wounds_on"] == "none" else int(options["auto_wounds_on"]),
-                is_blast=True if options["is_blast"] == "yes" else False if options["is_blast"] == "no" else None
+                is_blast=True if options["is_blast"] == "yes" else False if options["is_blast"] == "no" else None,
+                auto_hit=True if options["auto_hit"] == "yes" else False if options["auto_hit"] == "no" else None
             )
 
 
@@ -213,14 +223,21 @@ def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Op
 
 def get_hit_ratio(weapon):
     assert (isinstance(weapon, Weapon))
-    key = f"{weapon.hit}{weapon.options.hit_modifier}{weapon.options.reroll_hits}{weapon.options.dakka3}"
+    key = f"{weapon.hit}" \
+          f"{weapon.options.hit_modifier}" \
+          f"{weapon.options.reroll_hits}" \
+          f"{weapon.options.dakka3}" \
+          f"{weapon.options.auto_hit}"
     hit_ratio = hit_ratios_cache.get(key, None)
     if hit_ratio is None:
-        hit_ratio = 0
-        for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
-            hit_ratio += prob_hit_roll * get_success_ratio(hit_roll - weapon.options.hit_modifier,
-                                                           reroll=weapon.options.reroll_hits,
-                                                           dakka3=weapon.options.dakka3)
+        if weapon.options.auto_hit:
+            hit_ratio = 1
+        else:
+            hit_ratio = 0
+            for hit_roll, prob_hit_roll in prob_by_roll_result(weapon.hit).items():
+                hit_ratio += prob_hit_roll * get_success_ratio(hit_roll - weapon.options.hit_modifier,
+                                                               reroll=weapon.options.reroll_hits,
+                                                               dakka3=weapon.options.dakka3)
         hit_ratios_cache[key] = hit_ratio
     return hit_ratio
 

@@ -87,14 +87,16 @@ class Test(unittest.TestCase):
                                         "reroll_wounds": "none",
                                         "dakka3": "none",
                                         "auto_wounds_on": "none",
-                                        "is_blast": "no"}).wound_modifier, 0)
+                                        "is_blast": "no",
+                                        "auto_hit": "no"}).wound_modifier, 0)
         self.assertEqual(Options.parse({"hit_modifier": "0",
                                         "wound_modifier": "0",
                                         "reroll_hits": "none",
                                         "reroll_wounds": "none",
                                         "dakka3": "none",
                                         "auto_wounds_on": "none",
-                                        "is_blast": "no"}).hit_modifier, 0)
+                                        "is_blast": "no",
+                                        "auto_hit": "no"}).hit_modifier, 0)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
@@ -165,6 +167,7 @@ class Test(unittest.TestCase):
                 Weapon(hit="5", a="D6", s="3", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0)), t,
                 None,
                 None))
+
         # blast on 11+
         self.assertTrue(
             get_n_attacks(
@@ -267,6 +270,15 @@ class Test(unittest.TestCase):
                 Weapon(hit="0", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))),
             get_hit_ratio(
                 Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))))
+        # auto_hit
+        self.assertTrue(
+            get_hit_ratio(
+                Weapon(hit="4", a="10", s="4", ap="D6", d="D6", options=Options(auto_hit=True))
+            ) ==
+            2 * get_hit_ratio(
+                Weapon(hit="4", a="10", s="4", ap="D6", d="D6", options=Options(auto_hit=False))
+            ) == 1
+        )
 
         self.assertTrue(scores_to_z(10000, 1) == 1)
         self.assertTrue(scores_to_z(1, 10000) == -1)
