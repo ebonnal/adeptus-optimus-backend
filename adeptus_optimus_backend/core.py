@@ -43,7 +43,8 @@ class Options:
                  dakka3=None,
                  auto_wounds_on=None,
                  is_blast=False,
-                 auto_hit=False):
+                 auto_hit=False,
+                 wounds_by_2D6=False):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
         assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.full})
@@ -52,6 +53,7 @@ class Options:
         assert (auto_wounds_on in {Options.none, 5, 6})
         assert (type(is_blast) is bool)
         assert (type(auto_hit) is bool)
+        assert (type(wounds_by_2D6) is bool)
 
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
@@ -61,6 +63,7 @@ class Options:
         self.auto_wounds_on = auto_wounds_on
         self.is_blast = is_blast
         self.auto_hit = auto_hit
+        self.wounds_by_2D6 = wounds_by_2D6
 
     @staticmethod
     def empty():
@@ -71,7 +74,7 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 8)
+            assert (len(options) == 9)
             return Options(
                 hit_modifier=int(options["hit_modifier"]),
                 wound_modifier=int(options["wound_modifier"]),
@@ -80,7 +83,9 @@ class Options:
                 dakka3=Options.none if options["dakka3"] == "none" else int(options["dakka3"]),
                 auto_wounds_on=Options.none if options["auto_wounds_on"] == "none" else int(options["auto_wounds_on"]),
                 is_blast=True if options["is_blast"] == "yes" else False if options["is_blast"] == "no" else None,
-                auto_hit=True if options["auto_hit"] == "yes" else False if options["auto_hit"] == "no" else None
+                auto_hit=True if options["auto_hit"] == "yes" else False if options["auto_hit"] == "no" else None,
+                wounds_by_2D6=
+                True if options["wounds_by_2D6"] == "yes" else False if options["wounds_by_2D6"] == "no" else None
             )
 
 
@@ -253,22 +258,28 @@ def get_wound_ratio(weapon, target):
     key = f"{weapon.s}" \
           f"{weapon.options.wound_modifier}" \
           f"{weapon.options.reroll_wounds}" \
-          f"{target.t}" \
-          f"{weapon.options.auto_wounds_on}"
+          f"{weapon.options.auto_wounds_on}" \
+          f"{weapon.options.wounds_by_2D6}" \
+          f"{target.t}"
 
     wound_ratio = wound_ratios_cache.get(key, None)
     if wound_ratio is None:
         wound_ratio = 0
-        for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
-            success_ratio = get_success_ratio(
-                compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier,
-                reroll=weapon.options.reroll_wounds
-            )
-            if weapon.options.auto_wounds_on == Options.none:
-                wound_ratio += success_ratio * prob_s_roll
-            else:
-                wound_ratio += (weapon.options.auto_wounds_on - 1) / 6 * success_ratio + \
-                               (7 - weapon.options.auto_wounds_on) / 6  # auto wounds
+        if weapon.options.wounds_by_2D6:
+            for roll, prob_roll in prob_by_roll_result(DiceExpr(2, 6)).items():
+                if roll >= target.t:
+                    wound_ratio += prob_roll
+        else:
+            for s_roll, prob_s_roll in prob_by_roll_result(weapon.s).items():
+                success_ratio = get_success_ratio(
+                    compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier,
+                    reroll=weapon.options.reroll_wounds
+                )
+                if weapon.options.auto_wounds_on == Options.none:
+                    wound_ratio += success_ratio * prob_s_roll
+                else:
+                    wound_ratio += (weapon.options.auto_wounds_on - 1) / 6 * success_ratio + \
+                                   (7 - weapon.options.auto_wounds_on) / 6  # auto wounds
         wound_ratios_cache[key] = wound_ratio
 
     return wound_ratio

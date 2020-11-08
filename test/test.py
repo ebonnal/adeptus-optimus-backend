@@ -88,7 +88,8 @@ class Test(unittest.TestCase):
                                         "dakka3": "none",
                                         "auto_wounds_on": "none",
                                         "is_blast": "no",
-                                        "auto_hit": "no"}).wound_modifier, 0)
+                                        "auto_hit": "no",
+                                        "wounds_by_2D6": "no"}).wound_modifier, 0)
         self.assertEqual(Options.parse({"hit_modifier": "0",
                                         "wound_modifier": "0",
                                         "reroll_hits": "none",
@@ -96,7 +97,8 @@ class Test(unittest.TestCase):
                                         "dakka3": "none",
                                         "auto_wounds_on": "none",
                                         "is_blast": "no",
-                                        "auto_hit": "no"}).hit_modifier, 0)
+                                        "auto_hit": "no",
+                                        "wounds_by_2D6": "no"}).hit_modifier, 0)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
@@ -192,6 +194,31 @@ class Test(unittest.TestCase):
                 Target(t=4, sv=6, n_models=6)
             ) == 3
         )
+        # wounds_by_2D6
+        self.assertTrue(float_eq(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
+                Target(t=2, sv=6)
+            ), 1
+        ))
+        self.assertTrue(float_eq(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
+                Target(t=3, sv=6)
+            ), 1 - 1 / 36
+        ))
+        self.assertTrue(float_eq(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
+                Target(t=13, sv=6)
+            ), 0
+        ))
+        self.assertTrue(float_eq(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
+                Target(t=7, sv=6)
+            ), 15 / 36 + 6 / 36
+        ))
         # hit on 4+ and auto wound at 5+ == hit at 4+ and wound_modifier +1: 2/6+4/6*3/6 == (3+1)/6 == 2/3
         self.assertTrue(
             get_wound_ratio(
