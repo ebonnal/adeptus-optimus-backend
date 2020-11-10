@@ -222,15 +222,14 @@ class Test(unittest.TestCase):
             ), 15 / 36 + 6 / 36
         ))
         # hit on 4+ and auto wound at 5+ == hit at 4+ and wound_modifier +1: 2/6+4/6*3/6 == (3+1)/6 == 2/3
-        self.assertTrue(
+        self.assertEqual(
+            get_hit_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options())
+            ) *
             get_wound_ratio(
-                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(auto_wounds_on=5)),
+                Weapon(hit="4", a="1", s="5", ap="D6", d="D6", options=Options(auto_wounds_on=5)),
                 Target(t=4, sv=6)
-            ) ==
-            get_wound_ratio(
-                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wound_modifier=+1)),
-                Target(t=4, sv=6)
-            ) == 2 / 3
+            ), 1*1/2*(1/3*2/3+2/3)
         )
         # Assert DakkaDakkaDakka and 1s reroll is the same
         self.assertTrue(float_eq(

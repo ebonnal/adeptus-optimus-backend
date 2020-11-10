@@ -317,11 +317,9 @@ def get_hit_ratio(weapon):
         if weapon.options.auto_hit:
             hit_ratio = 1
         else:
-            hit_ratio = 0
-            for hit_roll, prob_hit_roll in get_prob_by_roll_result(weapon.hit).items():
-                hit_ratio += prob_hit_roll * get_success_ratio(hit_roll - weapon.options.hit_modifier,
-                                                               reroll=weapon.options.reroll_hits,
-                                                               dakka3=weapon.options.dakka3)
+            hit_ratio = get_success_ratio(weapon.hit - weapon.options.hit_modifier,
+                                          reroll=weapon.options.reroll_hits,
+                                          dakka3=weapon.options.dakka3)
         hit_ratios_cache[key] = hit_ratio
     return hit_ratio
 
