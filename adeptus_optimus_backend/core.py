@@ -61,18 +61,6 @@ class Options:
         reroll_damages_key: "Damages reroll"
     }
 
-    @staticmethod
-    def _is_not_zero(opt):
-        return opt != 0
-
-    @staticmethod
-    def _is_not_none(opt):
-        return opt != Options.none
-
-    @staticmethod
-    def _is_true(opt):
-        return opt
-
     _not_activated_value = {
         hit_modifier_key: 0,
         wound_modifier_key: 0,
@@ -154,30 +142,23 @@ class Options:
             assert (len(options) == 10)
             return Options(
                 hit_modifier=
-                int(options[Options.hit_modifier_key]),
+                int(options[Options.hit_modifier_key]) if len(options[Options.hit_modifier_key]) else 0,
                 wound_modifier=
-                int(options[Options.wound_modifier_key]),
+                int(options[Options.wound_modifier_key]) if len(options[Options.wound_modifier_key]) else 0,
                 reroll_hits=
-                Options.none if options[Options.reroll_hits_key] == "none" else options[Options.reroll_hits_key],
+                options[Options.reroll_hits_key] if len(options[Options.reroll_hits_key]) else Options.none,
                 reroll_wounds=
-                Options.none if options[Options.reroll_wounds_key] == "none" else options[Options.reroll_wounds_key],
+                options[Options.reroll_wounds_key] if len(options[Options.reroll_wounds_key]) else Options.none,
                 dakka3=
-                Options.none if options[Options.dakka3_key] == "none" else int(options[Options.dakka3_key]),
+                int(options[Options.dakka3_key]) if len(options[Options.dakka3_key]) else Options.none,
                 auto_wounds_on=
-                Options.none if options[Options.auto_wounds_on_key] == "none"
-                else int(options[Options.auto_wounds_on_key]),
-                is_blast=
-                True if options[Options.is_blast_key] == "yes"
-                else False if options[Options.is_blast_key] == "no" else None,
-                auto_hit=
-                True if options[Options.auto_hit_key] == "yes"
-                else False if options[Options.auto_hit_key] == "no" else None,
+                int(options[Options.auto_wounds_on_key]) if len(options[Options.auto_wounds_on_key]) else Options.none,
+                is_blast=bool(options[Options.is_blast_key]) if len(options[Options.is_blast_key]) else False,
+                auto_hit=bool(options[Options.auto_hit_key]) if len(options[Options.auto_hit_key]) else False,
                 wounds_by_2D6=
-                True if options[Options.wounds_by_2D6_key] == "yes"
-                else False if options[Options.wounds_by_2D6_key] == "no" else None,
+                bool(options[Options.wounds_by_2D6_key]) if len(options[Options.wounds_by_2D6_key]) else False,
                 reroll_damages=
-                True if options[Options.reroll_damages_key] == "yes"
-                else False if options[Options.reroll_damages_key] == "no" else None
+                bool(options[Options.reroll_damages_key]) if len(options[Options.reroll_damages_key]) else False
             )
 
 

@@ -89,16 +89,16 @@ class Test(unittest.TestCase):
 
     def test_engine_core(self):
         # Options general
-        self.assertEqual(Options.parse({"hit_modifier": "0",
-                                        "wound_modifier": "0",
-                                        "reroll_hits": "none",
-                                        "reroll_wounds": "none",
-                                        "dakka3": "none",
-                                        "auto_wounds_on": "none",
-                                        "is_blast": "no",
-                                        "auto_hit": "no",
-                                        "wounds_by_2D6": "no",
-                                        "reroll_damages": "no"}).hit_modifier, 0)
+        self.assertEqual(Options.parse({"hit_modifier": "",
+                                        "wound_modifier": "",
+                                        "reroll_hits": "ones",
+                                        "reroll_wounds": "",
+                                        "dakka3": "5",
+                                        "auto_wounds_on": "",
+                                        "is_blast": "yes",
+                                        "auto_hit": "",
+                                        "wounds_by_2D6": "yes",
+                                        "reroll_damages": "yes"}).hit_modifier, 0)
         self.assertRaises(RequirementFailError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
 
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
