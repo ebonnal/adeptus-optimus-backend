@@ -603,14 +603,14 @@ def scores_to_z(score_a, score_b):
 def y_dims_to_str(l):
     show_n_models = Weapon.at_least_one_blast_weapon
     if show_n_models:
-        n_models_label = f"n°models:{map_n_models_to_label(l[3])}, "
+        n_models_label = f"unit size:{map_n_models_to_label(l[3])}, "
     else:
         n_models_label = ""
-    return f"""{n_models_label}fnp:{"-" if l[2] is None else f"{l[2]}+"}, T:{l[0]}, W:{l[1]}, """
+    return f"""{n_models_label}FNP:{"-" if l[2] is None else f"{l[2]}+"}, T:{l[0]}, W:{l[1]}"""
 
 
 def x_dims_to_str(l):
-    return f"""Sv:{"-" if l[0] is None else f"{l[0]}+"}, invu:{"-" if l[1] is None else f"{l[1]}+"}"""
+    return f"""Sv:{"-" if l[0] is None else f"{l[0]}+"}, Invu:{"-" if l[1] is None else f"{l[1]}+"}"""
 
 
 def scores_to_ratio(score_a, score_b):
