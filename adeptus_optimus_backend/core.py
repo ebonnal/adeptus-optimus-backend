@@ -238,10 +238,9 @@ slained_figs_ratio_per_unsaved_wound_cache = {}
 def get_n_attacks(weapon, target):
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    if not weapon.options.is_blast or target.n_models <= 5:
-        key = f"{weapon.a}"
-    else:
-        key = f"{weapon.a}{weapon.options.is_blast}{target.n_models}"
+    key = f"{weapon.a}"
+    if weapon.options.is_blast and target.n_models > 5:
+        key += f"{weapon.options.is_blast}{target.n_models}"
 
     n_attacks = n_attacks_cache.get(key, None)
     if n_attacks is None:
@@ -324,7 +323,7 @@ def get_hit_ratio(weapon):
     return hit_ratio
 
 
-def get_wound_ratio(weapon, target):
+def get_wound_ratio(weapon, target, hit_ratio):
     """
     Random strength value is resolved once per weapon:
     "Each time this unit is chosen to shoot with, roll once to
@@ -337,7 +336,10 @@ def get_wound_ratio(weapon, target):
           f"{weapon.options.reroll_wounds}" \
           f"{weapon.options.auto_wounds_on}" \
           f"{weapon.options.wounds_by_2D6}" \
-          f"{target.t}"
+          f"{target.t}" \
+
+    if (weapon.options.auto_wounds_on):
+        key += f"{hit_ratio}"
 
     wound_ratio = wound_ratios_cache.get(key, None)
     if wound_ratio is None:
