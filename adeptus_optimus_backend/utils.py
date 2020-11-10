@@ -2,6 +2,13 @@ import re
 
 from time import time, sleep
 
+
+def float_eq(a, b, n_same_decimals=8, verbose=False):
+    if verbose:
+        print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
+    return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
+
+
 _is_dev_execution = False
 
 
