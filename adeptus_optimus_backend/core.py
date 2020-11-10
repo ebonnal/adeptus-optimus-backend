@@ -37,6 +37,68 @@ class Options:
     n_models_6to10 = 6
     n_models_11_plus = 11
 
+    hit_modifier_key = "hit_modifier"
+    wound_modifier_key = "wound_modifier"
+    reroll_hits_key = "reroll_hits"
+    reroll_wounds_key = "reroll_wounds"
+    dakka3_key = "dakka3"
+    auto_wounds_on_key = "auto_wounds_on"
+    is_blast_key = "is_blast"
+    auto_hit_key = "auto_hit"
+    wounds_by_2D6_key = "wounds_by_2D6"
+    reroll_damages_key = "reroll_damages"
+
+    opt_key_to_repr = {
+        hit_modifier_key: "Hit modifier",
+        wound_modifier_key: "Wound modifier",
+        reroll_hits_key: "Hits reroll",
+        reroll_wounds_key: "Wounds reroll",
+        dakka3_key: "Dakka Dakka Dakka",
+        auto_wounds_on_key: "X+ hit rolls automatically wounds",
+        is_blast_key: "Blast",
+        auto_hit_key: "Automatically hits",
+        wounds_by_2D6_key: "Wounds if 2D6 >= Toughness",
+        reroll_damages_key: "Damages reroll"
+    }
+
+    @staticmethod
+    def _is_not_zero(opt):
+        return opt != 0
+
+    @staticmethod
+    def _is_not_none(opt):
+        return opt != Options.none
+
+    @staticmethod
+    def _is_true(opt):
+        return opt
+
+    _not_activated_value = {
+        hit_modifier_key: 0,
+        wound_modifier_key: 0,
+        reroll_hits_key: none,
+        reroll_wounds_key: none,
+        dakka3_key: none,
+        auto_wounds_on_key: none,
+        is_blast_key: False,
+        auto_hit_key: False,
+        wounds_by_2D6_key: False,
+        reroll_damages_key: False
+    }
+
+    incompatibilities = {
+        hit_modifier_key: {},
+        wound_modifier_key: {},
+        reroll_hits_key: {},
+        reroll_wounds_key: {},
+        dakka3_key: {},
+        auto_wounds_on_key: {},
+        is_blast_key: {},
+        auto_hit_key: {hit_modifier_key, auto_hit_key, reroll_hits_key, dakka3_key, auto_wounds_on_key},
+        wounds_by_2D6_key: {wound_modifier_key, auto_wounds_on_key, reroll_wounds_key},
+        reroll_damages_key: {}
+    }
+
     def __init__(self,
                  hit_modifier=0,
                  wound_modifier=0,
@@ -70,6 +132,16 @@ class Options:
         self.wounds_by_2D6 = wounds_by_2D6
         self.reroll_damages = reroll_damages
 
+        # Compatibility check:
+        for opt_key1, incompatible_opt_keys in Options.incompatibilities.items():
+            if self.__dict__[opt_key1] != Options._not_activated_value[opt_key1]:
+                for opt_key2 in Options.opt_key_to_repr.keys():
+                    if opt_key2 != opt_key1 and self.__dict__[opt_key2] != Options._not_activated_value[opt_key2]:
+                        require(
+                            opt_key2 not in incompatible_opt_keys,
+                            f"Options '{Options.opt_key_to_repr[opt_key1]}' and '{Options.opt_key_to_repr[opt_key2]}' are incompatible"
+                        )
+
     @staticmethod
     def empty():
         return Options()
@@ -81,18 +153,31 @@ class Options:
         else:
             assert (len(options) == 10)
             return Options(
-                hit_modifier=int(options["hit_modifier"]),
-                wound_modifier=int(options["wound_modifier"]),
-                reroll_hits=Options.none if options["reroll_hits"] == "none" else options["reroll_hits"],
-                reroll_wounds=Options.none if options["reroll_wounds"] == "none" else options["reroll_wounds"],
-                dakka3=Options.none if options["dakka3"] == "none" else int(options["dakka3"]),
-                auto_wounds_on=Options.none if options["auto_wounds_on"] == "none" else int(options["auto_wounds_on"]),
-                is_blast=True if options["is_blast"] == "yes" else False if options["is_blast"] == "no" else None,
-                auto_hit=True if options["auto_hit"] == "yes" else False if options["auto_hit"] == "no" else None,
+                hit_modifier=
+                int(options[Options.hit_modifier_key]),
+                wound_modifier=
+                int(options[Options.wound_modifier_key]),
+                reroll_hits=
+                Options.none if options[Options.reroll_hits_key] == "none" else options[Options.reroll_hits_key],
+                reroll_wounds=
+                Options.none if options[Options.reroll_wounds_key] == "none" else options[Options.reroll_wounds_key],
+                dakka3=
+                Options.none if options[Options.dakka3_key] == "none" else int(options[Options.dakka3_key]),
+                auto_wounds_on=
+                Options.none if options[Options.auto_wounds_on_key] == "none"
+                else int(options[Options.auto_wounds_on_key]),
+                is_blast=
+                True if options[Options.is_blast_key] == "yes"
+                else False if options[Options.is_blast_key] == "no" else None,
+                auto_hit=
+                True if options[Options.auto_hit_key] == "yes"
+                else False if options[Options.auto_hit_key] == "no" else None,
                 wounds_by_2D6=
-                True if options["wounds_by_2D6"] == "yes" else False if options["wounds_by_2D6"] == "no" else None,
+                True if options[Options.wounds_by_2D6_key] == "yes"
+                else False if options[Options.wounds_by_2D6_key] == "no" else None,
                 reroll_damages=
-                True if options["reroll_damages"] == "yes" else False if options["reroll_damages"] == "no" else None
+                True if options[Options.reroll_damages_key] == "yes"
+                else False if options[Options.reroll_damages_key] == "no" else None
             )
 
 

@@ -14,10 +14,10 @@ class Test(unittest.TestCase):
 
     def test_doms_alloc(self):
         # Damages reroll
-        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1, 3), 4, 100, False), 1/100))
+        self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1, 3), 4, 100, False), 1 / 100))
         self.assertTrue(float_eq(
             get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1, 3), 4, 100, True),
-            0.5*(1/9+2*(1/3+1/9)+3*(1/3+1/9))/100
+            0.5 * (1 / 9 + 2 * (1 / 3 + 1 / 9) + 3 * (1 / 3 + 1 / 9)) / 100
         ))
         # FNP
         self.assertTrue(float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(1), 6, 1, False), 5 / 6))
@@ -38,7 +38,8 @@ class Test(unittest.TestCase):
         )
         # lost damages
         self.assertTrue(
-            float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6, reroll_damages=False), 0.5))
+            float_eq(get_slained_figs_ratio_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6,
+                                                              reroll_damages=False), 0.5))
 
     def test_compute_successes_ratio(self):
         self.assertTrue(float_eq(get_success_ratio(8, True, Options.none), 1 / 6))
@@ -87,6 +88,7 @@ class Test(unittest.TestCase):
                                  ))
 
     def test_engine_core(self):
+        # Options general
         self.assertEqual(Options.parse({"hit_modifier": "0",
                                         "wound_modifier": "0",
                                         "reroll_hits": "none",
@@ -97,6 +99,8 @@ class Test(unittest.TestCase):
                                         "auto_hit": "no",
                                         "wounds_by_2D6": "no",
                                         "reroll_damages": "no"}).hit_modifier, 0)
+        self.assertRaises(RequirementFailError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
+
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
@@ -379,14 +383,15 @@ class Test(unittest.TestCase):
         # reroll if roll <= expected value is optimum
         for reroll_if_less_than in range(0, 13):
             self.assertLess(
-                get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=reroll_if_less_than)),
-                1.0000001*get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=7))
+                get_avg_of_density(
+                    get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=reroll_if_less_than)),
+                1.0000001 * get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=7))
             )
 
         # reroll is always better than nothing
         for reroll_if_less_than in range(3, 13):
             self.assertLess(
                 get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=0)),
-                1.0000001*get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=reroll_if_less_than))
+                1.0000001 * get_avg_of_density(
+                    get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=reroll_if_less_than))
             )
-

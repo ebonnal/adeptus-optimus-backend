@@ -60,7 +60,6 @@ class DiceExpr:
             self.min = n
             self.max = n * self.dices_type
 
-
     def __str__(self):
         if self.dices_type is None:
             return str(self.n)
