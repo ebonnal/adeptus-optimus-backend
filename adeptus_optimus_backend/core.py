@@ -27,6 +27,8 @@ class Options:
       than the target’s Toughness characteristic, the attack successfully wounds."
     - SAG rule: "Before firing this weapon, roll once to determine the Strength of all its shots. If the result is 11+
       each successful hit inflicts D3 mortal wounds on the target in addition to any normal damage"
+    - mortals and saves/FNP: "mortal wounds ignore saves (regular and invulnerable) completely but don't usually
+      ignore Feel No Pain type effects"
     """
     none = None
     ones = "ones"

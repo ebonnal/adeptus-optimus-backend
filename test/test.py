@@ -81,6 +81,16 @@ class Test(unittest.TestCase):
                                  3 / 6 * 1 / 6 * 3 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
                                  ))
 
+    def test_compute_necessary_wound_roll(self):
+        self.assertEqual(compute_necessary_wound_roll(1, 4), 6)
+        self.assertEqual(compute_necessary_wound_roll(2, 4), 6)
+        self.assertEqual(compute_necessary_wound_roll(3, 4), 5)
+        self.assertEqual(compute_necessary_wound_roll(4, 4), 4)
+        self.assertEqual(compute_necessary_wound_roll(5, 4), 3)
+        self.assertEqual(compute_necessary_wound_roll(6, 4), 3)
+        self.assertEqual(compute_necessary_wound_roll(7, 4), 3)
+        self.assertEqual(compute_necessary_wound_roll(8, 4), 2)
+
     def test_engine_core(self):
         # Options general
         self.assertEqual(Options.parse({"hit_modifier": "",
