@@ -41,6 +41,7 @@ class Options:
 
     hit_modifier_key = "hit_modifier"
     wound_modifier_key = "wound_modifier"
+    save_modifier_key = "save_modifier"
     reroll_hits_key = "reroll_hits"
     reroll_wounds_key = "reroll_wounds"
     dakka3_key = "dakka3"
@@ -51,8 +52,9 @@ class Options:
     reroll_damages_key = "reroll_damages"
 
     opt_key_to_repr = {
-        hit_modifier_key: "Hit modifier",
-        wound_modifier_key: "Wound modifier",
+        hit_modifier_key: "Hit roll modifier",
+        wound_modifier_key: "Wound roll modifier",
+        save_modifier_key: "Save roll modifier",
         reroll_hits_key: "Hits reroll",
         reroll_wounds_key: "Wounds reroll",
         dakka3_key: "Dakka Dakka Dakka",
@@ -66,6 +68,7 @@ class Options:
     not_activated_value = {
         hit_modifier_key: 0,
         wound_modifier_key: 0,
+        save_modifier_key: 0,
         reroll_hits_key: none,
         reroll_wounds_key: none,
         dakka3_key: none,
@@ -79,6 +82,7 @@ class Options:
     incompatibilities = {
         hit_modifier_key: {},
         wound_modifier_key: {},
+        save_modifier_key: {},
         reroll_hits_key: {},
         reroll_wounds_key: {},
         dakka3_key: {},
@@ -92,6 +96,7 @@ class Options:
     def __init__(self,
                  hit_modifier=0,
                  wound_modifier=0,
+                 save_modifier=0,
                  reroll_hits=None,
                  reroll_wounds=None,
                  dakka3=None,
@@ -99,9 +104,11 @@ class Options:
                  is_blast=False,
                  auto_hit=False,
                  wounds_by_2D6=False,
-                 reroll_damages=False):
+                 reroll_damages=False
+                 ):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
+        assert (save_modifier in {-3, -2, -1, 0, 1, 2, 3})
         assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (reroll_wounds in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (dakka3 in {Options.none, 5, 6})
@@ -113,6 +120,7 @@ class Options:
 
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
+        self.save_modifier = save_modifier
         self.reroll_hits = reroll_hits
         self.reroll_wounds = reroll_wounds
         self.dakka3 = dakka3
@@ -141,12 +149,14 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 10)
+            assert (len(options) == 11)
             return Options(
                 hit_modifier=
                 int(options[Options.hit_modifier_key]) if len(options[Options.hit_modifier_key]) else 0,
                 wound_modifier=
                 int(options[Options.wound_modifier_key]) if len(options[Options.wound_modifier_key]) else 0,
+                save_modifier=
+                int(options[Options.save_modifier_key]) if len(options[Options.save_modifier_key]) else 0,
                 reroll_hits=
                 options[Options.reroll_hits_key] if len(options[Options.reroll_hits_key]) else Options.none,
                 reroll_wounds=
@@ -261,24 +271,6 @@ def get_n_attacks(weapon, target):
     return n_attacks
 
 
-def _visit_hit_tree(reroll_consumed, dakka3_consumed, necessary_roll, reroll, dakka3):
-    successes_ratio = 0
-    for i in range(1, 7):
-        if i >= necessary_roll:
-            successes_ratio += 1 / 6
-        elif not reroll_consumed and reroll != Options.none:
-            if reroll == Options.ones and i == 1:
-                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
-            elif reroll == Options.onestwos and i <= 2:
-                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
-            elif reroll == Options.full:
-                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
-        if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
-            # dakka result in a new dice roll that may be rerolled
-            successes_ratio += 1 / 6 * _visit_hit_tree(reroll == Options.none, True, necessary_roll, reroll, dakka3)
-    return successes_ratio
-
-
 def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none, dakka3=Options.none):
     assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.full})
     assert (dakka3 in {Options.none, 5, 6})
@@ -305,6 +297,24 @@ def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Op
         success_ratios_cache[key] = success_ratio
 
     return success_ratio
+
+
+def _visit_hit_tree(reroll_consumed, dakka3_consumed, necessary_roll, reroll, dakka3):
+    successes_ratio = 0
+    for i in range(1, 7):
+        if i >= necessary_roll:
+            successes_ratio += 1 / 6
+        elif not reroll_consumed and reroll != Options.none:
+            if reroll == Options.ones and i == 1:
+                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+            elif reroll == Options.onestwos and i <= 2:
+                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+            elif reroll == Options.full:
+                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+        if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
+            # dakka result in a new dice roll that may be rerolled
+            successes_ratio += 1 / 6 * _visit_hit_tree(reroll == Options.none, True, necessary_roll, reroll, dakka3)
+    return successes_ratio
 
 
 def get_hit_ratio(weapon):
@@ -341,7 +351,7 @@ def get_wound_ratio(weapon, target):
           f"{weapon.options.wound_modifier}," \
           f"{weapon.options.reroll_wounds}," \
           f"{weapon.options.wounds_by_2D6}," \
-          f"{target.t}," \
+          f"{target.t},"
 
     if weapon.options.auto_wounds_on:
         key += f"{weapon.options.auto_wounds_on},{weapon.hit},{weapon.options.hit_modifier},"
@@ -370,9 +380,9 @@ def get_wound_ratio(weapon, target):
                         1,
                         (7 - auto_wounds_necessary_hit_roll) / (7 - necessary_roll_to_hit)
                     )
-                    wound_ratio += prob_s_roll *\
+                    wound_ratio += prob_s_roll * \
                                    ((1 - auto_wounding_hit_rolls_ratio) * success_ratio + auto_wounding_hit_rolls_ratio)
-                    
+
         wound_ratios_cache[key] = wound_ratio
 
     return wound_ratio
@@ -381,7 +391,7 @@ def get_wound_ratio(weapon, target):
 def get_unsaved_wound_ratio(weapon, target):
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    key = f"{weapon.ap},{target.sv},{target.invu},"
+    key = f"{weapon.ap},{target.sv},{target.invu},{weapon.options.save_modifier},"
     unsaved_wound_ratio = unsaved_wound_ratios_cache.get(key, None)
     if unsaved_wound_ratio is None:
         unsaved_wound_ratio = 0
@@ -389,10 +399,10 @@ def get_unsaved_wound_ratio(weapon, target):
             save_roll = target.sv + ap_roll
             if target.invu is not None:
                 save_roll = min(save_roll, target.invu)
-            save_fail_ratio = 1 - get_success_ratio(save_roll, auto_success_on_6=False)
+            save_fail_ratio = 1 - get_success_ratio(save_roll - weapon.options.save_modifier, auto_success_on_6=False)
             unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
         unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
-        
+
     return unsaved_wound_ratio
 
 
@@ -503,9 +513,9 @@ def get_slained_figs_percent(state_):
                         sum([
                             prob_d *
                             get_slained_figs_percent(State(n_unsaved_wounds_left=state.n_unsaved_wounds_left - 1,
-                                                         current_wound_n_damages_left=d,
-                                                         n_figs_slained_so_far=state.n_figs_slained_so_far,
-                                                         remaining_target_wounds=state.remaining_target_wounds))
+                                                           current_wound_n_damages_left=d,
+                                                           n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                                           remaining_target_wounds=state.remaining_target_wounds))
                             for d, prob_d in prob_by_roll_result.items()
                         ])
                         for prob_by_roll_result in prob_by_roll_result_list])
@@ -515,16 +525,16 @@ def get_slained_figs_percent(state_):
             else:
                 # FNP fail
                 f = get_slained_figs_percent(State(state.n_unsaved_wounds_left,
-                                                 state.current_wound_n_damages_left - 1,
-                                                 state.n_figs_slained_so_far,
-                                                 state.remaining_target_wounds - 1))
+                                                   state.current_wound_n_damages_left - 1,
+                                                   state.n_figs_slained_so_far,
+                                                   state.remaining_target_wounds - 1))
 
                 # FNP success
                 if State.fnp_fail_ratio != 1:
                     s = get_slained_figs_percent(State(state.n_unsaved_wounds_left,
-                                                     state.current_wound_n_damages_left - 1,
-                                                     state.n_figs_slained_so_far,
-                                                     state.remaining_target_wounds))
+                                                       state.current_wound_n_damages_left - 1,
+                                                       state.n_figs_slained_so_far,
+                                                       state.remaining_target_wounds))
                     downstream = (1 - State.fnp_fail_ratio) * s + State.fnp_fail_ratio * f
                 else:
                     downstream = f
@@ -555,7 +565,7 @@ def get_slained_figs_percent_per_unsaved_wound(weapon_d, target_fnp, target_woun
             n_figs_slained_so_far=0,
             remaining_target_wounds=target_wounds)) / State.n_unsaved_wounds_init
         slained_figs_percent_per_unsaved_wound_cache[key] = slained_figs_percent_per_unsaved_wound
-        
+
     return slained_figs_percent_per_unsaved_wound
 
 
@@ -747,6 +757,7 @@ def compute_heatmap(profile_a, profile_b):
         print(f"\tsize of hit_ratios_cache={len(hit_ratios_cache)}")
         print(f"\tsize of wound_ratios_cache={len(wound_ratios_cache)}")
         print(f"\tsize of unsaved_wound_ratios_cache={len(unsaved_wound_ratios_cache)}")
-        print(f"\tsize of slained_figs_percent_per_unsaved_wound_cache={len(slained_figs_percent_per_unsaved_wound_cache)}")
+        print(
+            f"\tsize of slained_figs_percent_per_unsaved_wound_cache={len(slained_figs_percent_per_unsaved_wound_cache)}")
 
     return res

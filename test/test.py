@@ -95,6 +95,7 @@ class Test(unittest.TestCase):
         # Options general
         self.assertEqual(Options.parse({"hit_modifier": "",
                                         "wound_modifier": "",
+                                        "save_modifier": "",
                                         "reroll_hits": "ones",
                                         "reroll_wounds": "",
                                         "dakka3": "5",
@@ -253,7 +254,7 @@ class Test(unittest.TestCase):
                 Target(t=7, sv=6)
             ), 15 / 36 + 6 / 36
         ))
-        # auto_hit on 6+ makes 1/4 of the hits auto wounding if necessary_hit_roll was 3+
+        # autohit on 6+ makes 1/4 of the hits auto wounding if necessary_hit_roll was 3+
         self.assertEqual(
             get_wound_ratio(
                 Weapon(hit="3", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
@@ -278,7 +279,72 @@ class Test(unittest.TestCase):
                 Target(t=4, sv=6)
             ), 1 / 4 + 3 / 4 * 1 / 3
         )
-        #
+        # auto hit on 6+ makes 100% of the hits auto wounding if necessary_hit_roll was 5+ or 6+
+        self.assertEqual(
+            get_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=5,
+                                                                               reroll_hits=Options.full,
+                                                                               hit_modifier=+1)),
+                Target(t=4, sv=6)
+            ), 1
+        )
+        self.assertEqual(
+            get_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
+                                                                               reroll_hits=Options.full,
+                                                                               hit_modifier=0)),
+                Target(t=4, sv=6)
+            ), 1
+        )
+        # save roll*
+        self.assertEqual(
+            get_unsaved_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=0)),
+                Target(t=4, sv=6)
+            ), 5/6
+        )
+        # save can be ignored with modifier
+        self.assertEqual(
+            get_unsaved_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=-1)),
+                Target(t=4, sv=6)
+            ), 1
+        )
+        # unmodified roll of 1 is always a fail for save roll
+        self.assertTrue(float_eq(
+            get_unsaved_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=+1)),
+                Target(t=4, sv=3)
+            ), 1/6
+        ))
+        self.assertTrue(float_eq(
+            get_unsaved_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=+2)),
+                Target(t=4, sv=3)
+            ), 1/6
+        ))
+        # when not reaching invul, -2 save modifier and -2 AP are equivalent
+        self.assertTrue(float_eq(
+            get_unsaved_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=-2)),
+                Target(t=4, sv=3)
+            ),
+            get_unsaved_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="2", d="D6", options=Options(save_modifier=0)),
+                Target(t=4, sv=3)
+            )
+        ))
+        # when reaching Invul, save modifier is better than equivalent AP
+        self.assertGreater(
+            get_unsaved_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=-2)),
+                Target(t=4, sv=3, invu=4)
+            ),
+            1.1 * get_unsaved_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="2", d="D6", options=Options(save_modifier=0)),
+                Target(t=4, sv=3, invu=4)
+            )
+        )
         # Assert six is always a success to hit or wound
         #   1) Modifiers
         self.assertEqual(
