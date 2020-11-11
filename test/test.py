@@ -64,10 +64,31 @@ class Test(unittest.TestCase):
             Weapon("5", "10", "7", "1", "1"),
             Target(t=8, sv=6, invu=None, fnp=6, w=1)
         ))
-        # roll damages twice and take best is better than full reroll
+        # roll damages twice and take best is better than reroll
         self.assertGreater(
-            1, 0.1
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="D3", options=Options(roll_damages_twice=True)),
+                Target(w=5)),
+            1.01 * get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="D3", options=Options(reroll_damages=True)),
+                Target(w=5))
         )
+        self.assertGreater(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="D3", options=Options(roll_damages_twice=True)),
+                Target(w=3)),
+            1.01 * get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="D3", options=Options(reroll_damages=True)),
+                Target(w=3))
+        )
+        self.assertTrue(float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="D3", options=Options(roll_damages_twice=True)),
+                Target(w=1)),
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="D3", options=Options(reroll_damages=True)),
+                Target(w=1))
+        ))
 
     def test_compute_successes_ratio(self):
         self.assertTrue(float_eq(get_success_ratio(8, True, Options.none), 1 / 6))

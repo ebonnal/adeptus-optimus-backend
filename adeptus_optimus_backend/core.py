@@ -462,6 +462,7 @@ class State:
     n_figs_slained_weighted_ratios = None
     fnp_fail_ratio = None
     start_target_wounds = None
+    roll_damages_twice = None
     cache = Cache()
 
     def __init__(self,
@@ -519,11 +520,14 @@ def get_slained_figs_percent(state_):
                     # random doms handling
                     if State.reroll_damages:
                         prob_by_roll_result_list = [
-                            get_prob_by_roll_result(State.weapon_d, reroll_if_less_than=roll)
+                            get_prob_by_roll_result(State.weapon_d,
+                                                    reroll_if_less_than=roll,
+                                                    roll_twice=State.roll_damages_twice)
                             for roll in range(State.weapon_d.min, State.weapon_d.max)
                         ]
                     else:
-                        prob_by_roll_result_list = [get_prob_by_roll_result(State.weapon_d)]
+                        prob_by_roll_result_list = \
+                            [get_prob_by_roll_result(State.weapon_d, roll_twice=State.roll_damages_twice)]
 
                     downstream = max([
                         sum([
@@ -585,6 +589,7 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
             State.n_figs_slained_weighted_ratios = []
             State.fnp_fail_ratio = 1 if target.fnp is None else 1 - get_success_ratio(target.fnp)
             State.start_target_wounds = target.w
+            State.roll_damages_twice = weapon.options.roll_damages_twice
             State.cache.reset()
 
             slained_figs_percent_per_unsaved_wound = get_slained_figs_percent(State(
@@ -769,7 +774,7 @@ def compute_heatmap(profile_a, profile_b):
         print(f"\tsize of hit_ratios_cache={len(hit_ratios_cache)}")
         print(f"\tsize of wound_ratios_cache={len(wound_ratios_cache)}")
         print(f"\tsize of unsaved_wound_ratios_cache={len(unsaved_wound_ratios_cache)}")
-        print(
-            f"\tsize of slained_figs_percent_per_unsaved_wound_cache={len(slained_figs_percent_per_unsaved_wound_cache)}")
+        print(f"\tsize of slained_figs_percent_per_unsaved_wound_cache="
+              f"{len(slained_figs_percent_per_unsaved_wound_cache)}")
 
     return res
