@@ -328,7 +328,7 @@ def get_hit_ratio(weapon):
     return hit_ratio
 
 
-def get_wound_ratio(weapon, target, hit_ratio=None):
+def get_wound_ratio(weapon, target):
     """
     Random strength value is resolved once per weapon:
     "Each time this unit is chosen to shoot with, roll once to
@@ -336,8 +336,6 @@ def get_wound_ratio(weapon, target, hit_ratio=None):
     """
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    assert (hit_ratio is not None
-            or weapon.options.auto_wounds_on == Options.not_activated_value[Options.auto_wounds_on_key])
 
     key = f"{weapon.s}," \
           f"{weapon.options.wound_modifier}," \
@@ -346,7 +344,7 @@ def get_wound_ratio(weapon, target, hit_ratio=None):
           f"{target.t}," \
 
     if weapon.options.auto_wounds_on:
-        key += f"{weapon.options.auto_wounds_on},{hit_ratio},"
+        key += f"{weapon.options.auto_wounds_on},{weapon.hit},{weapon.options.hit_modifier},"
 
     wound_ratio = wound_ratios_cache.get(key, None)
     if wound_ratio is None:
@@ -365,12 +363,10 @@ def get_wound_ratio(weapon, target, hit_ratio=None):
                     wound_ratio += success_ratio * prob_s_roll
                 else:
                     # modified
-                    necessary_roll_to_hit = 7 - 6 * hit_ratio
+                    necessary_roll_to_hit = weapon.hit.avg - weapon.options.hit_modifier
                     # unmodified
                     auto_wounds_necessary_hit_roll = weapon.options.auto_wounds_on
-                    
-                    auto_wound_ratio = (7 - auto_wounds_necessary_hit_roll) / (7 - necessary_roll_to_hit)
-                    
+                    auto_wound_ratio = min(1, (7 - auto_wounds_necessary_hit_roll) / (7 - necessary_roll_to_hit))
                     wound_ratio += prob_s_roll * ((1 - auto_wound_ratio) * success_ratio + auto_wound_ratio)
                     
         wound_ratios_cache[key] = wound_ratio
@@ -586,7 +582,7 @@ def score_weapon_on_target(w, t, avg_n_attacks, hit_ratio):
     """
     avg_n_attacks = w.a.avg if avg_n_attacks is None else avg_n_attacks
     hit_ratio = get_hit_ratio(w) if hit_ratio is None else hit_ratio
-    return avg_n_attacks * hit_ratio * get_wound_ratio(w, t, hit_ratio) * get_unsaved_wound_ratio(w, t) \
+    return avg_n_attacks * hit_ratio * get_wound_ratio(w, t) * get_unsaved_wound_ratio(w, t) \
            * get_avg_figs_fraction_slained_per_unsaved_wound(w, t)
 
 

@@ -200,43 +200,7 @@ class Test(unittest.TestCase):
                 Target(t=4, sv=6, n_models=6)
             ) == 3
         )
-        # wounds_by_2D6
-        self.assertTrue(float_eq(
-            get_wound_ratio(
-                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
-                Target(t=2, sv=6)
-            ), 1
-        ))
-        self.assertTrue(float_eq(
-            get_wound_ratio(
-                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
-                Target(t=3, sv=6)
-            ), 1 - 1 / 36
-        ))
-        self.assertTrue(float_eq(
-            get_wound_ratio(
-                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
-                Target(t=13, sv=6)
-            ), 0
-        ))
-        self.assertTrue(float_eq(
-            get_wound_ratio(
-                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
-                Target(t=7, sv=6)
-            ), 15 / 36 + 6 / 36
-        ))
-        # hit on 4+ and auto wound at 5+ == hit at 4+ and wound_modifier +1: 2/6+4/6*3/6 == (3+1)/6 == 2/3
-        hit_ratio = get_hit_ratio(
-            Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options())
-        )
-        self.assertEqual(
-            hit_ratio *
-            get_wound_ratio(
-                Weapon(hit="4", a="1", s="5", ap="D6", d="D6", options=Options(auto_wounds_on=5)),
-                Target(t=4, sv=6),
-                hit_ratio
-            ), 1*1/2*(1/3*2/3+2/3)
-        )
+
         # Assert DakkaDakkaDakka and 1s reroll is the same
         self.assertTrue(float_eq(
             get_hit_ratio(
@@ -264,6 +228,57 @@ class Test(unittest.TestCase):
             1.1 * get_hit_ratio(
                 Weapon(hit="6", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.onestwos))),
             get_hit_ratio(Weapon(hit="6", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.full))))
+        # wounds_by_2D6
+        self.assertTrue(float_eq(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
+                Target(t=2, sv=6)
+            ), 1
+        ))
+        self.assertTrue(float_eq(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
+                Target(t=3, sv=6)
+            ), 1 - 1 / 36
+        ))
+        self.assertTrue(float_eq(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
+                Target(t=13, sv=6)
+            ), 0
+        ))
+        self.assertTrue(float_eq(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
+                Target(t=7, sv=6)
+            ), 15 / 36 + 6 / 36
+        ))
+        # auto_hit on 6+ makes 1/4 of the hits auto wounding if necessary_hit_roll was 3+
+        self.assertEqual(
+            get_wound_ratio(
+                Weapon(hit="3", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
+                                                                               reroll_hits=Options.none,
+                                                                               hit_modifier=0)),
+                Target(t=4, sv=6)
+            ), 1/4+3/4*1/3
+        )
+        self.assertEqual(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
+                                                                               reroll_hits=Options.none,
+                                                                               hit_modifier=+1)),
+                Target(t=4, sv=6)
+            ), 1/4+3/4*1/3
+        )
+        self.assertEqual(
+            get_wound_ratio(
+                Weapon(hit="4", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
+                                                                               reroll_hits=Options.full,
+                                                                               hit_modifier=+1)),
+                Target(t=4, sv=6)
+            ), 1/4+3/4*1/3
+        )
+        #
         # Assert six is always a success to hit or wound
         #   1) Modifiers
         self.assertEqual(
