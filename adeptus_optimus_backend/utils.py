@@ -78,6 +78,8 @@ DiceExpr.star = DiceExpr(-1, None)
 
 
 def parse_dice_expr(d, complexity_threshold=18, raise_on_failure=False, allow_star=False):
+    if isinstance(d, DiceExpr):
+        return d
     assert (type(d) is str)
     groups = re.fullmatch(r"([1-9][0-9]*)?D([36])?|([0-9]+)", d)
     res = None

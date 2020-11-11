@@ -50,6 +50,7 @@ class Options:
     auto_hit_key = "auto_hit"
     wounds_by_2D6_key = "wounds_by_2D6"
     reroll_damages_key = "reroll_damages"
+    roll_damages_twice_key = "roll_damages_twice"
 
     opt_key_to_repr = {
         hit_modifier_key: "Hit roll modifier",
@@ -62,7 +63,8 @@ class Options:
         is_blast_key: "Blast",
         auto_hit_key: "Automatically hits",
         wounds_by_2D6_key: "Wounds if 2D6 >= Toughness",
-        reroll_damages_key: "Damages reroll"
+        reroll_damages_key: "Damages reroll",
+        roll_damages_twice_key: "Roll damages twice and take the best"
     }
 
     not_activated_value = {
@@ -76,7 +78,8 @@ class Options:
         is_blast_key: False,
         auto_hit_key: False,
         wounds_by_2D6_key: False,
-        reroll_damages_key: False
+        reroll_damages_key: False,
+        roll_damages_twice_key: False
     }
 
     incompatibilities = {
@@ -90,7 +93,8 @@ class Options:
         is_blast_key: {},
         auto_hit_key: {hit_modifier_key, auto_hit_key, reroll_hits_key, dakka3_key, auto_wounds_on_key},
         wounds_by_2D6_key: {wound_modifier_key, auto_wounds_on_key, reroll_wounds_key},
-        reroll_damages_key: {}
+        reroll_damages_key: {},
+        roll_damages_twice_key: {reroll_damages_key}
     }
 
     def __init__(self,
@@ -104,7 +108,8 @@ class Options:
                  is_blast=False,
                  auto_hit=False,
                  wounds_by_2D6=False,
-                 reroll_damages=False
+                 reroll_damages=False,
+                 roll_damages_twice=False
                  ):
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
@@ -117,6 +122,7 @@ class Options:
         assert (type(auto_hit) is bool)
         assert (type(wounds_by_2D6) is bool)
         assert (type(reroll_damages) is bool)
+        assert (type(roll_damages_twice) is bool)
 
         self.hit_modifier = hit_modifier
         self.wound_modifier = wound_modifier
@@ -129,6 +135,7 @@ class Options:
         self.auto_hit = auto_hit
         self.wounds_by_2D6 = wounds_by_2D6
         self.reroll_damages = reroll_damages
+        self.roll_damages_twice = roll_damages_twice
 
         # Compatibility check:
         for opt_key1, incompatible_opt_keys in Options.incompatibilities.items():
@@ -149,7 +156,7 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 11)
+            assert (len(options) == 12)
             return Options(
                 hit_modifier=
                 int(options[Options.hit_modifier_key]) if len(options[Options.hit_modifier_key]) else 0,
@@ -170,7 +177,9 @@ class Options:
                 wounds_by_2D6=
                 bool(options[Options.wounds_by_2D6_key]) if len(options[Options.wounds_by_2D6_key]) else False,
                 reroll_damages=
-                bool(options[Options.reroll_damages_key]) if len(options[Options.reroll_damages_key]) else False
+                bool(options[Options.reroll_damages_key]) if len(options[Options.reroll_damages_key]) else False,
+                roll_damages_twice=
+                bool(options[Options.roll_damages_twice_key]) if len(options[Options.roll_damages_twice_key]) else False
             )
 
 
@@ -192,7 +201,7 @@ class Profile:
 class Weapon:
     at_least_one_blast_weapon = False
 
-    def __init__(self, hit, a, s, ap, d, options=Options.empty()):
+    def __init__(self, hit="4", a="1", s="4", ap="0", d="1", options=Options.empty()):
         # prob by roll result: O(n*dice_type)
         self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
         require(self.hit.dices_type is None, "Random Balistic/Weapon Skill is not allowed")
@@ -204,9 +213,11 @@ class Weapon:
         require(self.d.avg != 0, "Damage cannot be 0")
         self.options = Options.parse(options)
         require(not self.options.is_blast or self.a.dices_type is not None,
-                f"Cannot activate blast option with a non random attack characteristic: {self.a}")
+                f"Cannot activate '{Options.opt_key_to_repr[Options.is_blast_key]}' option with a non random attack characteristic: {self.a}")
         require(not self.options.reroll_damages or self.d.dices_type is not None,
-                f"Cannot activate damages reroll option with a non random Damage characteristic: {self.d}")
+                f"Cannot activate '{Options.opt_key_to_repr[Options.reroll_damages_key]}' option with a non random Damage characteristic: {self.d}")
+        require(not self.options.roll_damages_twice or self.d.dices_type is not None,
+                f"Cannot activate '{Options.opt_key_to_repr[Options.roll_damages_twice_key]}' option with a non random Damage characteristic: {self.d}")
         self.s = parse_dice_expr(s,
                                  complexity_threshold=12,
                                  raise_on_failure=True,
@@ -218,7 +229,7 @@ class Weapon:
 
 
 class Target:
-    def __init__(self, t, sv=6, invu=None, fnp=None, w=1, n_models=1):
+    def __init__(self, t=4, sv=6, invu=None, fnp=None, w=1, n_models=1):
         assert (invu is None or (type(invu) is int and invu > 0 and invu <= 6))
         self.invu = invu
 
@@ -391,7 +402,12 @@ def get_wound_ratio(weapon, target):
 def get_unsaved_wound_ratio(weapon, target):
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
-    key = f"{weapon.ap},{target.sv},{target.invu},{weapon.options.save_modifier},"
+
+    key = f"{weapon.ap}," \
+          f"{target.sv}," \
+          f"{target.invu}," \
+          f"{weapon.options.save_modifier},"
+
     unsaved_wound_ratio = unsaved_wound_ratios_cache.get(key, None)
     if unsaved_wound_ratio is None:
         unsaved_wound_ratio = 0
@@ -542,28 +558,41 @@ def get_slained_figs_percent(state_):
                 return downstream
 
 
-def get_slained_figs_percent_per_unsaved_wound(weapon_d, target_fnp, target_wounds, reroll_damages):
+def get_slained_figs_percent_per_unsaved_wound(weapon, target):
     """
     n_unsaved_wounds_init=32: 14 sec, res prec +-0.02 compared to 64
     n_unsaved_wounds_init=10:  5 sec, res prec +-0.1  compared to 64
     """
-    key = f"{weapon_d},{target_fnp},{target_wounds},{reroll_damages}"
-    slained_figs_percent_per_unsaved_wound = slained_figs_percent_per_unsaved_wound_cache.get(key, None)
-    if slained_figs_percent_per_unsaved_wound is None:
-        State.reroll_damages = reroll_damages
-        State.weapon_d = weapon_d
-        State.target_wounds = target_wounds
-        State.n_unsaved_wounds_init = 16
-        State.n_figs_slained_weighted_ratios = []
-        State.fnp_fail_ratio = 1 if target_fnp is None else 1 - get_success_ratio(target_fnp)
-        State.start_target_wounds = target_wounds
-        State.cache.reset()
+    key = f"{weapon.d}," \
+          f"{target.fnp}," \
+          f"{target.w}," \
+          f"{weapon.options.reroll_damages}," \
+          f"{weapon.options.roll_damages_twice},"
 
-        slained_figs_percent_per_unsaved_wound = get_slained_figs_percent(State(
-            n_unsaved_wounds_left=State.n_unsaved_wounds_init,
-            current_wound_n_damages_left=0,
-            n_figs_slained_so_far=0,
-            remaining_target_wounds=target_wounds)) / State.n_unsaved_wounds_init
+    slained_figs_percent_per_unsaved_wound = slained_figs_percent_per_unsaved_wound_cache.get(key, None)
+
+    if slained_figs_percent_per_unsaved_wound is None:
+        assert (isinstance(weapon, Weapon))
+        assert (isinstance(target, Target))
+        if weapon.d.dices_type is None and target.fnp is None:
+            slained_figs_percent_per_unsaved_wound = exact_avg_figs_fraction_slained_per_unsaved_wound(d=weapon.d.n,
+                                                                                                       w=target.w)
+        else:
+            State.reroll_damages = weapon.options.reroll_damages
+            State.weapon_d = weapon.d
+            State.target_wounds = target.w
+            State.n_unsaved_wounds_init = 16
+            State.n_figs_slained_weighted_ratios = []
+            State.fnp_fail_ratio = 1 if target.fnp is None else 1 - get_success_ratio(target.fnp)
+            State.start_target_wounds = target.w
+            State.cache.reset()
+
+            slained_figs_percent_per_unsaved_wound = get_slained_figs_percent(State(
+                n_unsaved_wounds_left=State.n_unsaved_wounds_init,
+                current_wound_n_damages_left=0,
+                n_figs_slained_so_far=0,
+                remaining_target_wounds=target.w)) / State.n_unsaved_wounds_init
+
         slained_figs_percent_per_unsaved_wound_cache[key] = slained_figs_percent_per_unsaved_wound
 
     return slained_figs_percent_per_unsaved_wound
@@ -573,23 +602,6 @@ def exact_avg_figs_fraction_slained_per_unsaved_wound(d, w):
     return 1 / math.ceil(w / d)
 
 
-# last step numeric averaging: damage roll + fnp
-def get_avg_figs_fraction_slained_per_unsaved_wound(weapon, target):
-    """
-    Random damage value is resolved once per unsaved wound
-
-    :param N: number of consecutive wounds resolved:
-          - N=1000 leads to a result precise at +- 1.5%
-          - N=10000 leads to a result precise at +- 0.5%
-    """
-    assert (isinstance(weapon, Weapon))
-    assert (isinstance(target, Target))
-    if weapon.d.dices_type is None and target.fnp is None:
-        return exact_avg_figs_fraction_slained_per_unsaved_wound(d=weapon.d.n, w=target.w)
-
-    return get_slained_figs_percent_per_unsaved_wound(weapon.d, target.fnp, target.w, weapon.options.reroll_damages)
-
-
 def score_weapon_on_target(w, t, avg_n_attacks, hit_ratio):
     """
     avg_figs_fraction_slained by point
@@ -597,7 +609,7 @@ def score_weapon_on_target(w, t, avg_n_attacks, hit_ratio):
     avg_n_attacks = w.a.avg if avg_n_attacks is None else avg_n_attacks
     hit_ratio = get_hit_ratio(w) if hit_ratio is None else hit_ratio
     return avg_n_attacks * hit_ratio * get_wound_ratio(w, t) * get_unsaved_wound_ratio(w, t) \
-           * get_avg_figs_fraction_slained_per_unsaved_wound(w, t)
+           * get_slained_figs_percent_per_unsaved_wound(w, t)
 
 
 def scores_to_z(score_a, score_b):

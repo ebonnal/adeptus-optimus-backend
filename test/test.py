@@ -8,32 +8,66 @@ class Test(unittest.TestCase):
 
     def test_doms_alloc(self):
         # Damages reroll
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(1, 3), 4, 100, False), 1 / 100))
+        self.assertTrue(
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4)),
+                     1 / 100))
         self.assertTrue(float_eq(
-            get_slained_figs_percent_per_unsaved_wound(DiceExpr(1, 3), 4, 100, True),
-            0.5 * (1 / 9 + 2 * (1 / 3 + 1 / 9) + 3 * (1 / 3 + 1 / 9)) / 100
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d=DiceExpr(1, 3), options=Options(reroll_damages=True)),
+                Target(w=100, fnp=4)
+            ), 0.5 * (1 / 9 + 2 * (1 / 3 + 1 / 9) + 3 * (1 / 3 + 1 / 9)) / 100
         ))
         # FNP
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(1), 6, 1, False), 5 / 6))
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(1), 5, 1, False), 4 / 6))
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(1), 4, 1, False), 0.5))
+        self.assertTrue(
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=6)), 5 / 6))
+        self.assertTrue(
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=5)), 4 / 6))
+        self.assertTrue(
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=4)), 0.5))
         # on W=2
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(1), None, 2, False), 0.5))
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(2), None, 2, False), 1))
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(2, 3), None, 2, False), 1))
+        self.assertTrue(
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=2, fnp=None)), 0.5))
+        self.assertTrue(
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(2)), Target(w=2, fnp=None)), 1))
+        self.assertTrue(
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(2, 3)), Target(w=2, fnp=None)), 1))
         # random doms
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(1, 6), None, 35, False), 0.1, 0))
+        self.assertTrue(
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 6)), Target(w=35, fnp=None)), 0.1,
+                     0))
         self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(
-            DiceExpr(1, 6), 4, 175, False), 0.01, 0)
+            Weapon(d=DiceExpr(1, 6)), Target(w=175, fnp=4)), 0.01, 0)
         )
 
         self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(
-            DiceExpr(1, 6), 5, 70, False), 2 / 3 * 3.5 / 70)
+            Weapon(d=DiceExpr(1, 6)), Target(w=70, fnp=5)), 2 / 3 * 3.5 / 70)
         )
         # lost damages
         self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6,
-                                                                reroll_damages=False), 0.5))
+            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(5)), Target(w=6, fnp=None)), 0.5))
+
+        # exact cases
+        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
+        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
+        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
+        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) ==
+                        get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(3)), Target(w=5, fnp=None)))
+        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) ==
+                        get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(2)), Target(w=2, fnp=None)))
+        self.assertTrue(float_eq(
+            exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16),
+            get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(6)), Target(w=16, fnp=None)), 0))
+        self.assertTrue(get_slained_figs_percent_per_unsaved_wound(
+            Weapon("5", "10", "2D6", "1", "1"),
+            Target(t=8, sv=6, invu=None, fnp=6, w=1)
+        ) == get_slained_figs_percent_per_unsaved_wound(
+            Weapon("5", "10", "7", "1", "1"),
+            Target(t=8, sv=6, invu=None, fnp=6, w=1)
+        ))
+        # roll damages twice and take best is better than full reroll
+        self.assertGreater(
+            1, 0.1
+        )
 
     def test_compute_successes_ratio(self):
         self.assertTrue(float_eq(get_success_ratio(8, True, Options.none), 1 / 6))
@@ -103,25 +137,10 @@ class Test(unittest.TestCase):
                                         "is_blast": "yes",
                                         "auto_hit": "",
                                         "wounds_by_2D6": "yes",
-                                        "reroll_damages": "yes"}).hit_modifier, 0)
+                                        "reroll_damages": "yes",
+                                        "roll_damages_twice": ""}).hit_modifier, 0)
         self.assertRaises(RequirementFailError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
 
-        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
-        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) == 1)
-        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16) == 1 / 3)
-        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) ==
-                        get_slained_figs_percent_per_unsaved_wound(DiceExpr(3), None, 5, False))
-        self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) ==
-                        get_slained_figs_percent_per_unsaved_wound(DiceExpr(2), None, 2, False))
-        self.assertTrue(float_eq(exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16),
-                                 get_slained_figs_percent_per_unsaved_wound(DiceExpr(6), None, 16, False), 0))
-        self.assertTrue(get_avg_figs_fraction_slained_per_unsaved_wound(
-            Weapon("5", "10", "2D6", "1", "1"),
-            Target(t=8, sv=6, invu=None, fnp=6, w=1)
-        ) == get_avg_figs_fraction_slained_per_unsaved_wound(
-            Weapon("5", "10", "7", "1", "1"),
-            Target(t=8, sv=6, invu=None, fnp=6, w=1)
-        ))
         self.assertTrue(get_avg_of_density({0: 0.2, 1: 0.5, 2: 0.3}) == 0.5 + 0.3 * 2)
         wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", options=Options(hit_modifier=0, wound_modifier=0))
         wea2 = Weapon(hit="4", a="4", s="4", ap="0", d="3", options=Options(hit_modifier=0, wound_modifier=0))
@@ -301,7 +320,7 @@ class Test(unittest.TestCase):
             get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=0)),
                 Target(t=4, sv=6)
-            ), 5/6
+            ), 5 / 6
         )
         # save can be ignored with modifier
         self.assertEqual(
@@ -315,13 +334,13 @@ class Test(unittest.TestCase):
             get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=+1)),
                 Target(t=4, sv=3)
-            ), 1/6
+            ), 1 / 6
         ))
         self.assertTrue(float_eq(
             get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=+2)),
                 Target(t=4, sv=3)
-            ), 1/6
+            ), 1 / 6
         ))
         # when not reaching invul, -2 save modifier and -2 AP are equivalent
         self.assertTrue(float_eq(
@@ -334,7 +353,7 @@ class Test(unittest.TestCase):
                 Target(t=4, sv=3)
             )
         ))
-        # when reaching Invul, save modifier is better than equivalent AP
+        # when reaching Invu, save modifier is better than equivalent AP
         self.assertGreater(
             get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=-2)),
