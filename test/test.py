@@ -33,7 +33,7 @@ class Test(unittest.TestCase):
         # lost damages
         self.assertTrue(
             float_eq(get_slained_figs_percent_per_unsaved_wound(DiceExpr(5), target_fnp=None, target_wounds=6,
-                                                              reroll_damages=False), 0.5))
+                                                                reroll_damages=False), 0.5))
 
     def test_compute_successes_ratio(self):
         self.assertTrue(float_eq(get_success_ratio(8, True, Options.none), 1 / 6))
@@ -260,7 +260,7 @@ class Test(unittest.TestCase):
                                                                                reroll_hits=Options.none,
                                                                                hit_modifier=0)),
                 Target(t=4, sv=6)
-            ), 1/4+3/4*1/3
+            ), 1 / 4 + 3 / 4 * 1 / 3
         )
         self.assertEqual(
             get_wound_ratio(
@@ -268,7 +268,7 @@ class Test(unittest.TestCase):
                                                                                reroll_hits=Options.none,
                                                                                hit_modifier=+1)),
                 Target(t=4, sv=6)
-            ), 1/4+3/4*1/3
+            ), 1 / 4 + 3 / 4 * 1 / 3
         )
         self.assertEqual(
             get_wound_ratio(
@@ -276,7 +276,7 @@ class Test(unittest.TestCase):
                                                                                reroll_hits=Options.full,
                                                                                hit_modifier=+1)),
                 Target(t=4, sv=6)
-            ), 1/4+3/4*1/3
+            ), 1 / 4 + 3 / 4 * 1 / 3
         )
         #
         # Assert six is always a success to hit or wound

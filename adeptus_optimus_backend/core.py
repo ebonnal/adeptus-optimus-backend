@@ -366,8 +366,12 @@ def get_wound_ratio(weapon, target):
                     necessary_roll_to_hit = weapon.hit.avg - weapon.options.hit_modifier
                     # unmodified
                     auto_wounds_necessary_hit_roll = weapon.options.auto_wounds_on
-                    auto_wound_ratio = min(1, (7 - auto_wounds_necessary_hit_roll) / (7 - necessary_roll_to_hit))
-                    wound_ratio += prob_s_roll * ((1 - auto_wound_ratio) * success_ratio + auto_wound_ratio)
+                    auto_wounding_hit_rolls_ratio = min(
+                        1,
+                        (7 - auto_wounds_necessary_hit_roll) / (7 - necessary_roll_to_hit)
+                    )
+                    wound_ratio += prob_s_roll *\
+                                   ((1 - auto_wounding_hit_rolls_ratio) * success_ratio + auto_wounding_hit_rolls_ratio)
                     
         wound_ratios_cache[key] = wound_ratio
 
