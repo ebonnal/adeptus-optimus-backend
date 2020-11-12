@@ -64,7 +64,7 @@ class Test(unittest.TestCase):
             Weapon("5", "10", "7", "1", "1"),
             Target(t=8, sv=6, invu=None, fnp=6, w=1)
         ))
-        # roll damages twice and take best is better than reroll
+        # roll damages twice and take best is better than reroll  TODO: add more precise testing
         self.assertGreater(
             get_slained_figs_percent_per_unsaved_wound(
                 Weapon(d="D3", options=Options(roll_damages_twice=True)),

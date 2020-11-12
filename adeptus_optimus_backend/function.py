@@ -54,13 +54,18 @@ def treat_request(request, allowed_origin):
 
     try:
         params = request.args.get('params')
+        share_settings = request.args.get('share_settings')
         if is_dev_execution():
             print("received params=", params)
-        params = json.loads(params)
-        try:
-            response = compute_heatmap(*parse_params(params)), 200, headers
-        except RequirementFailError as e:
-            response = {"msg": f"INVALID INPUT: {e}"}, 422, headers
+            print("received settings=", share_settings)
+        if params is not None:
+            params = json.loads(params)
+            try:
+                response = compute_heatmap(*parse_params(params)), 200, headers
+            except RequirementFailError as e:
+                response = {"msg": f"INVALID INPUT: {e}"}, 422, headers
+        elif share_settings is not None:  # dynamic short link gen
+            response = {"link": f"https://adeptus-optimus.web.app?share_settings={share_settings}"}, 200, headers
     except Exception as e:
         if is_dev_execution():
             traceback.print_exc()
