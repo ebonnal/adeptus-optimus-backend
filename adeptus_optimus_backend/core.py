@@ -56,7 +56,6 @@ class Options:
     roll_damages_twice_key = "roll_damages_twice"
     snipe_key = "snipe"
 
-
     opt_key_to_repr = {
         hit_modifier_key: "Hit roll modifier",
         wound_modifier_key: "Wound roll modifier",
@@ -189,7 +188,8 @@ class Options:
                 reroll_damages=
                 bool(options[Options.reroll_damages_key]) if len(options[Options.reroll_damages_key]) else False,
                 roll_damages_twice=
-                bool(options[Options.roll_damages_twice_key]) if len(options[Options.roll_damages_twice_key]) else False,
+                bool(options[Options.roll_damages_twice_key]) if len(
+                    options[Options.roll_damages_twice_key]) else False,
                 snipe=
                 Options.parse_snipe(options[Options.snipe_key]) if len(options[Options.snipe_key]) else Options.none
             )
@@ -198,12 +198,12 @@ class Options:
     def parse_snipe(v):
         x, y, z = v.split(",")
         x = parse_dice_expr(x, raise_on_failure=True)
-        assert(y in {Options.wound, Options.strength})
+        assert (y in {Options.wound, Options.strength})
         z = int(z)
         return {
             "x": x,  # *D3* mortals
             "y": y,  # on *"wound_roll"*
-            "z": z   # of *5*+
+            "z": z  # of *5*+
         }
 
 
@@ -247,7 +247,8 @@ class Weapon:
                                  raise_on_failure=True,
                                  allow_star=self.options.wounds_by_2D6)  # per each target O(n*dice_type)
         require(
-            self.options.snipe is None or self.options.snipe["z"] <= {Options.strength: self.s.max, Options.wound: 6 + self.options.wound_modifier}[self.options.snipe["y"]],
+            self.options.snipe is None or self.options.snipe["z"] <=
+            {Options.strength: self.s.max, Options.wound: 6 + self.options.wound_modifier}[self.options.snipe["y"]],
             lambda: f"""Cannot activate '{Options.opt_key_to_repr[Options.snipe_key]}': A {self.options.snipe["y"]} roll of {self.options.snipe["z"]}+ is impossible"""
         )
         require(self.s.avg != 0, "Strength cannot be 0")
@@ -688,9 +689,26 @@ def map_n_models_to_label(n_models):
         raise RuntimeError
 
 
-def compute_heatmap(profile_a, profile_b):
+def compute_heatmap(profile_a, profile_b, no_caches=False):
     assert (isinstance(profile_a, Profile))
     assert (isinstance(profile_b, Profile))
+    if no_caches:
+        global success_ratios_cache, \
+            n_attacks_cache, \
+            hit_ratios_cache, \
+            wound_ratios_cache, \
+            unsaved_wound_ratios_cache, \
+            slained_figs_percent_per_unsaved_wound_cache
+
+        class FakeDict(dict):
+            pass
+
+        success_ratios_cache = FakeDict()
+        n_attacks_cache = FakeDict()
+        hit_ratios_cache = FakeDict()
+        wound_ratios_cache = FakeDict()
+        unsaved_wound_ratios_cache = FakeDict()
+        slained_figs_percent_per_unsaved_wound_cache = FakeDict()
 
     res = {}
     ts_ws_fnps_nm = []

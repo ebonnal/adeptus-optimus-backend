@@ -4,7 +4,10 @@ from adeptus_optimus_backend import *
 from time import time
 
 
+
 class Test(unittest.TestCase):
+    def test_compute_heatmap(self):
+        pass
 
     def test_doms_alloc(self):
         # Damages reroll
