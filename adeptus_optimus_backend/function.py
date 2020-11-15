@@ -57,7 +57,7 @@ def treat_request(request, allowed_origin):
         share_settings = request.args.get('share_settings')
         if is_dev_execution():
             print("received params=", params)
-            print("received settings=", share_settings)
+            print("received share_settings=", share_settings)
         if params is not None:
             params = json.loads(params)
             try:
@@ -66,6 +66,9 @@ def treat_request(request, allowed_origin):
                 response = {"msg": f"INVALID INPUT: {e}"}, 422, headers
         elif share_settings is not None:  # dynamic short link gen
             response = {"link": f"https://adeptus-optimus.web.app?share_settings={share_settings}"}, 200, headers
+        else:
+            raise RuntimeError("Request json query string should contain key 'share_settings' or 'params'")
+
     except Exception as e:
         if is_dev_execution():
             traceback.print_exc()

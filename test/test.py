@@ -148,7 +148,7 @@ class Test(unittest.TestCase):
 
     def test_engine_core(self):
         # Options general
-        self.assertEqual(Options.parse({"hit_modifier": "",
+        self.assertTrue(Options.parse({"hit_modifier": "",
                                         "wound_modifier": "",
                                         "save_modifier": "",
                                         "reroll_hits": "ones",
@@ -157,9 +157,10 @@ class Test(unittest.TestCase):
                                         "auto_wounds_on": "",
                                         "is_blast": "yes",
                                         "auto_hit": "",
-                                        "wounds_by_2D6": "yes",
+                                        "wounds_by_2D6": "",
                                         "reroll_damages": "yes",
-                                        "roll_damages_twice": ""}).hit_modifier, 0)
+                                        "roll_damages_twice": "",
+                                        "snipe": "2D3,wound,3"}).snipe["x"] == DiceExpr(2, 3))
         self.assertRaises(RequirementFailError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
 
         self.assertTrue(get_avg_of_density({0: 0.2, 1: 0.5, 2: 0.3}) == 0.5 + 0.3 * 2)
@@ -448,6 +449,9 @@ class Test(unittest.TestCase):
         start = time()
         with_minimum_exec_time(0.3, lambda: 1)
         self.assertGreater(time() - start, 0.3)
+        self.assertTrue(DiceExpr(5, 3) == DiceExpr(5, 3))
+        self.assertTrue(DiceExpr(5, 3) != DiceExpr(5, 6))
+        self.assertTrue(DiceExpr(15, 3) != DiceExpr(5, 3))
         self.assertTrue(str(DiceExpr(5, 3)) == "5D3")
         self.assertTrue(str(DiceExpr(1, 6)) == "D6")
         self.assertTrue(str(DiceExpr(10, None)) == "10")

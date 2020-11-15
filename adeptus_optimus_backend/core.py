@@ -35,6 +35,9 @@ class Options:
     onestwos = "onestwos"
     full = "full"
 
+    wound = "wound"
+    strength = "strength"
+
     n_models_1to5 = 1
     n_models_6to10 = 6
     n_models_11_plus = 11
@@ -51,6 +54,8 @@ class Options:
     wounds_by_2D6_key = "wounds_by_2D6"
     reroll_damages_key = "reroll_damages"
     roll_damages_twice_key = "roll_damages_twice"
+    snipe_key = "snipe"
+
 
     opt_key_to_repr = {
         hit_modifier_key: "Hit roll modifier",
@@ -64,7 +69,8 @@ class Options:
         auto_hit_key: "Automatically hits",
         wounds_by_2D6_key: "Wounds if 2D6 >= Toughness",
         reroll_damages_key: "Damages reroll",
-        roll_damages_twice_key: "Roll damages twice and take the best"
+        roll_damages_twice_key: "Roll damages twice and take the best",
+        snipe_key: "Inflict X mortal wounds for Y roll of Z+"
     }
 
     not_activated_value = {
@@ -79,7 +85,8 @@ class Options:
         auto_hit_key: False,
         wounds_by_2D6_key: False,
         reroll_damages_key: False,
-        roll_damages_twice_key: False
+        roll_damages_twice_key: False,
+        snipe_key: none
     }
 
     incompatibilities = {
@@ -94,7 +101,8 @@ class Options:
         auto_hit_key: {hit_modifier_key, auto_hit_key, reroll_hits_key, dakka3_key, auto_wounds_on_key},
         wounds_by_2D6_key: {wound_modifier_key, auto_wounds_on_key, reroll_wounds_key},
         reroll_damages_key: {},
-        roll_damages_twice_key: {reroll_damages_key}
+        roll_damages_twice_key: {reroll_damages_key},
+        snipe_key: {auto_wounds_on_key, wounds_by_2D6_key}
     }
 
     def __init__(self,
@@ -109,8 +117,9 @@ class Options:
                  auto_hit=False,
                  wounds_by_2D6=False,
                  reroll_damages=False,
-                 roll_damages_twice=False
-                 ):
+                 roll_damages_twice=False,
+                 snipe=None):
+
         assert (hit_modifier in {-1, 0, 1})
         assert (wound_modifier in {-1, 0, 1})
         assert (save_modifier in {-3, -2, -1, 0, 1, 2, 3})
@@ -136,6 +145,7 @@ class Options:
         self.wounds_by_2D6 = wounds_by_2D6
         self.reroll_damages = reroll_damages
         self.roll_damages_twice = roll_damages_twice
+        self.snipe = snipe  # a part of snipe validation is in Options.parse_snipe and another part in Weapon.__init__
 
         # Compatibility check:
         for opt_key1, incompatible_opt_keys in Options.incompatibilities.items():
@@ -156,7 +166,7 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 12)
+            assert (len(options) == 13)
             return Options(
                 hit_modifier=
                 int(options[Options.hit_modifier_key]) if len(options[Options.hit_modifier_key]) else 0,
@@ -179,8 +189,22 @@ class Options:
                 reroll_damages=
                 bool(options[Options.reroll_damages_key]) if len(options[Options.reroll_damages_key]) else False,
                 roll_damages_twice=
-                bool(options[Options.roll_damages_twice_key]) if len(options[Options.roll_damages_twice_key]) else False
+                bool(options[Options.roll_damages_twice_key]) if len(options[Options.roll_damages_twice_key]) else False,
+                snipe=
+                Options.parse_snipe(options[Options.snipe_key]) if len(options[Options.snipe_key]) else Options.none
             )
+
+    @staticmethod
+    def parse_snipe(v):
+        x, y, z = v.split(",")
+        x = parse_dice_expr(x, raise_on_failure=True)
+        assert(y in {Options.wound, Options.strength})
+        z = int(z)
+        return {
+            "x": x,  # *D3* mortals
+            "y": y,  # on *"wound_roll"*
+            "z": z   # of *5*+
+        }
 
 
 class Profile:
@@ -222,6 +246,10 @@ class Weapon:
                                  complexity_threshold=12,
                                  raise_on_failure=True,
                                  allow_star=self.options.wounds_by_2D6)  # per each target O(n*dice_type)
+        require(
+            self.options.snipe is None or self.options.snipe["z"] <= {Options.strength: self.s.max, Options.wound: 6 + self.options.wound_modifier}[self.options.snipe["y"]],
+            lambda: f"""Cannot activate '{Options.opt_key_to_repr[Options.snipe_key]}': A {self.options.snipe["y"]} roll of {self.options.snipe["z"]}+ is impossible"""
+        )
         require(self.s.avg != 0, "Strength cannot be 0")
         if self.options.is_blast:
             Weapon.at_least_one_blast_weapon = True

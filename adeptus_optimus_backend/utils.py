@@ -46,6 +46,10 @@ class RequirementFailError(Exception):
 
 
 def require(predicate, error_message):
+    try:
+        error_message = error_message()
+    except TypeError:
+        pass
     if not (predicate):
         raise RequirementFailError(error_message)
 
@@ -72,6 +76,12 @@ class DiceExpr:
             return str(self.n)
         else:
             return f"{self.n if self.n > 1 else ''}D{self.dices_type}"
+
+    def __eq__(self, other):
+        if not isinstance(other, DiceExpr):
+            return False
+        else:
+            return self.n == other.n and self.dices_type == other.dices_type
 
 
 DiceExpr.star = DiceExpr(-1, None)
@@ -131,7 +141,7 @@ def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0, roll_twice=False):
     :param reroll_if_less_than: dictates the reroll (reroll all dices) policy, 0 means a reroll never occurs
     """
     assert (reroll_if_less_than >= 0)
-    assert(reroll_if_less_than == 0 or not roll_twice)
+    assert (reroll_if_less_than == 0 or not roll_twice)
     key = f"{dice_expr},{reroll_if_less_than},{roll_twice},"
     prob_by_roll_result = prob_by_roll_result_cache.get(key, None)
     if prob_by_roll_result is None:
@@ -169,7 +179,7 @@ def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0, roll_twice=False):
                         prob_by_roll_result[max(r1, r2)] += prob_r1 * prob_r2
 
         prob_by_roll_result_cache[key] = prob_by_roll_result
-        assert(float_eq(sum(prob_by_roll_result.values()), 1))
+        assert (float_eq(sum(prob_by_roll_result.values()), 1))
     return prob_by_roll_result
 
 
