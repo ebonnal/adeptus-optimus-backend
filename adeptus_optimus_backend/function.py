@@ -4,7 +4,7 @@ from time import time
 
 from .utils import RequirementError, with_minimum_exec_time, is_dev_execution
 from .core import compute_heatmap, Profile, Weapon
-
+from .link import get_short_dynamic_link
 
 def parse_profile(letter, params):
     present_indexes = []
@@ -65,10 +65,10 @@ def treat_request(request, allowed_origin):
             except RequirementError as e:
                 response = {"msg": f"INVALID INPUT: {e}"}, 422, headers
         elif share_settings is not None:  # dynamic short link gen
-            response = {"link": f"https://adeptus-optimus.web.app?share_settings={share_settings}"}, 200, headers
+            link = f"https://adeptus-optimus.web.app?share_settings={share_settings}"
+            response = {"link": get_short_dynamic_link(link)}, 200, headers
         else:
             raise RuntimeError("Request json query string should contain key 'share_settings' or 'params'")
-
     except Exception as e:
         if is_dev_execution():
             traceback.print_exc()

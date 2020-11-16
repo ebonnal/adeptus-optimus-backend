@@ -102,7 +102,7 @@ def parse_dice_expr(d, complexity_threshold=18, raise_on_failure=False, allow_st
             # at this point dices type is known
             if groups.group(1) is not None and int(groups.group(1)) == 1:
                 res = None  # 1D6 is not canonical, should enter D6
-                invalidity_details = f"must be noted 'D{dices_type}'"
+                invalidity_details = f" must be noted 'D{dices_type}'"
             else:
                 if groups.group(1) is None:
                     n_dices = 1
@@ -118,10 +118,15 @@ def parse_dice_expr(d, complexity_threshold=18, raise_on_failure=False, allow_st
             res = None
     finally:
         # not too many cases splits
-        if res is not None and res.n * (1 if res.dices_type is None else res.dices_type) > complexity_threshold:
+        if res is not None and res.max > complexity_threshold:
+            if res.dices_type is None:
+                invalidity_details = f": Value is too high"
+            else:
+                invalidity_details = f": Maximum value is too high"
             res = None
+
         if raise_on_failure:
-            require(res is not None, f"Invalid input: '{d}' {invalidity_details}")
+            require(res is not None, f"Invalid input '{d}'{invalidity_details}")
         return res
 
 
