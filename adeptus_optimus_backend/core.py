@@ -665,7 +665,7 @@ def scores_to_z(score_a, score_b):
         z = + (1 - score_b / score_a)
     else:
         z = - (1 - score_a / score_b)
-    return round(z, 3)  # round(z, 3) 91.8kB
+    return round(z, 4)  # round(z, 3) 91.8kB
 
 
 def y_dims_to_str(l):
@@ -683,9 +683,9 @@ def x_dims_to_str(l):
 
 def scores_to_ratio(score_a, score_b):
     if score_a > score_b:
-        return round(score_a / score_b, 3)
+        return round(score_a / score_b, 4)
     else:
-        return round(score_b / score_a, 3)
+        return round(score_b / score_a, 4)
 
 
 def map_n_models_to_label(n_models):
