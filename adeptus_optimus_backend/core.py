@@ -42,6 +42,10 @@ class Options:
     n_models_6to10 = 6
     n_models_11_plus = 11
 
+    snipe_roll_type = "roll_type"
+    snipe_threshold = "threshold"
+    snipe_n_mortals = "n_mortals"
+
     hit_modifier_key = "hit_modifier"
     wound_modifier_key = "wound_modifier"
     save_modifier_key = "save_modifier"
@@ -62,14 +66,14 @@ class Options:
         save_modifier_key: "Save roll modifier",
         reroll_hits_key: "Hits reroll",
         reroll_wounds_key: "Wounds reroll",
-        dakka3_key: "Dakka Dakka Dakka",
-        auto_wounds_on_key: "X+ hit rolls automatically wounds",
-        is_blast_key: "Blast",
+        dakka3_key: "Dakka Dakka Dakka on _+",
+        auto_wounds_on_key: "An unmodified hit roll of _+ automatically wounds",
+        is_blast_key: "Is a blast weapon",
         auto_hit_key: "Automatically hits",
-        wounds_by_2D6_key: "Wounds if 2D6 >= Toughness",
-        reroll_damages_key: "Damages reroll",
-        roll_damages_twice_key: "Roll damages twice and take the best",
-        snipe_key: "Inflict X mortal wounds for Y roll of Z+"
+        wounds_by_2D6_key: "Wounds if the result of 2D6 >= target’s Toughness",
+        reroll_damages_key: "Damage rolls reroll",
+        roll_damages_twice_key: "Make random damage rolls twice and discard the lowest result",
+        snipe_key: "For each _ roll of _+ , inflicts _ mortal wound(s)"
     }
 
     not_activated_value = {
@@ -196,14 +200,15 @@ class Options:
 
     @staticmethod
     def parse_snipe(v):
-        x, y, z = v.split(",")
-        x = parse_dice_expr(x, raise_on_failure=True)
-        assert (y in {Options.wound, Options.strength})
-        z = int(z)
+        roll_type, threshold, n_mortals = v.split(",")
+        assert (roll_type in {Options.wound, Options.strength})
+        threshold = int(threshold)
+        require(threshold > 0, f"Threshold input for option '{Options.opt_key_to_repr[Options.snipe_key]}' must be > 0")
+        n_mortals = parse_dice_expr(n_mortals, raise_on_failure=True)
         return {
-            "x": x,  # *D3* mortals
-            "y": y,  # on *"wound_roll"*
-            "z": z  # of *5*+
+            Options.snipe_roll_type: roll_type,  # *D3* mortals
+            Options.snipe_threshold: threshold,  # on *"wound_roll"*
+            Options.snipe_n_mortals: n_mortals  # of *5*+
         }
 
 
@@ -236,31 +241,40 @@ class Weapon:
 
     def __init__(self, hit="4", a="1", s="4", ap="0", d="1", options=Options.empty()):
         # prob by roll result: O(n*dice_type)
-        self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
+        self.hit = parse_dice_expr(hit, complexity_threshold=float("inf"), raise_on_failure=True)  # only one time O(n*dice_type)
         require(self.hit.dices_type is None, "Random Ballistic/Weapon Skill is not allowed")
-        require(2 <= self.hit.n <= 6, "Ballistic/Weapon Skill must be between 2 and 6 (included)")
+        require(2 <= self.hit.n <= 6, f"Ballistic/Weapon Skill must be between 2 and 6 (included), not '{self.hit}'")
         self.a = parse_dice_expr(a, complexity_threshold=128, raise_on_failure=True)  # only one time 0(n)
         require(self.a.avg != 0, "Number of Attacks cannot be 0")
 
         self.ap = parse_dice_expr(ap, complexity_threshold=12, raise_on_failure=True)  # per each target O(n*dice_type)
-        self.d = parse_dice_expr(d, complexity_threshold=6, raise_on_failure=True)  # exponential exponential compl
+        self.d = parse_dice_expr(d, complexity_threshold=12, raise_on_failure=True)  # exponential exponential compl
         require(self.d.avg != 0, "Damage cannot be 0")
         self.options = Options.parse(options)
         require(not self.options.is_blast or self.a.dices_type is not None,
-                f"Cannot activate '{Options.opt_key_to_repr[Options.is_blast_key]}' option with a non random attack characteristic: {self.a}")
+                f"Cannot activate '{Options.opt_key_to_repr[Options.is_blast_key]}' "
+                f"option with a non random attack characteristic: {self.a}")
         require(not self.options.reroll_damages or self.d.dices_type is not None,
-                f"Cannot activate '{Options.opt_key_to_repr[Options.reroll_damages_key]}' option with a non random Damage characteristic: {self.d}")
+                f"Cannot activate '{Options.opt_key_to_repr[Options.reroll_damages_key]}' "
+                f"option with a non random Damage characteristic: {self.d}")
         require(not self.options.roll_damages_twice or self.d.dices_type is not None,
-                f"Cannot activate '{Options.opt_key_to_repr[Options.roll_damages_twice_key]}' option with a non random Damage characteristic: {self.d}")
+                f"Cannot activate '{Options.opt_key_to_repr[Options.roll_damages_twice_key]}' "
+                f"option with a non random Damage characteristic: {self.d}")
         self.s = parse_dice_expr(s,
                                  complexity_threshold=12,
                                  raise_on_failure=True,
                                  allow_star=self.options.wounds_by_2D6)  # per each target O(n*dice_type)
         require(
-            self.options.snipe is None or self.options.snipe["z"] <=
-            {Options.strength: self.s.max, Options.wound: 6 + self.options.wound_modifier}[self.options.snipe["y"]],
-            lambda: f"""Cannot activate '{Options.opt_key_to_repr[Options.snipe_key]}': A {self.options.snipe["y"]} roll of {self.options.snipe["z"]}+ is impossible"""
+            self.options.snipe is None or self.options.snipe[Options.snipe_roll_type] != Options.strength or
+            self.s.dices_type is not None,
+            lambda: f"""Cannot activate '{Options.opt_key_to_repr[Options.snipe_key]}': The {self.options.snipe[Options.snipe_roll_type]} roll '{self.s}' is not random."""
         )
+        require(
+            self.options.snipe is None or self.options.snipe[Options.snipe_threshold] <=
+            {Options.strength: self.s.max, Options.wound: 6 + self.options.wound_modifier}[self.options.snipe[Options.snipe_roll_type]],
+            lambda: f"""Cannot activate '{Options.opt_key_to_repr[Options.snipe_key]}': A {self.options.snipe[Options.snipe_roll_type]} roll of {self.options.snipe[Options.snipe_threshold]}+ is impossible"""
+        )
+
         require(self.s.avg != 0, "Strength cannot be 0")
         if self.options.is_blast:
             Weapon.at_least_one_blast_weapon = True

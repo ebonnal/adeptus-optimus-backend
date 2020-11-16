@@ -4,9 +4,9 @@ from adeptus_optimus_backend import *
 from time import time
 
 
-
 class Test(unittest.TestCase):
     def test_compute_heatmap(self):
+        # TODO with and without cache
         pass
 
     def test_doms_alloc(self):
@@ -152,18 +152,18 @@ class Test(unittest.TestCase):
     def test_engine_core(self):
         # Options general
         self.assertTrue(Options.parse({"hit_modifier": "",
-                                        "wound_modifier": "",
-                                        "save_modifier": "",
-                                        "reroll_hits": "ones",
-                                        "reroll_wounds": "",
-                                        "dakka3": "5",
-                                        "auto_wounds_on": "",
-                                        "is_blast": "yes",
-                                        "auto_hit": "",
-                                        "wounds_by_2D6": "",
-                                        "reroll_damages": "yes",
-                                        "roll_damages_twice": "",
-                                        "snipe": "2D3,wound,3"}).snipe["x"] == DiceExpr(2, 3))
+                                       "wound_modifier": "",
+                                       "save_modifier": "",
+                                       "reroll_hits": "ones",
+                                       "reroll_wounds": "",
+                                       "dakka3": "5",
+                                       "auto_wounds_on": "",
+                                       "is_blast": "yes",
+                                       "auto_hit": "",
+                                       "wounds_by_2D6": "",
+                                       "reroll_damages": "yes",
+                                       "roll_damages_twice": "",
+                                       "snipe": "wound,3,2D3"}).snipe["n_mortals"] == DiceExpr(2, 3))
         self.assertRaises(RequirementError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
 
         self.assertTrue(get_avg_of_density({0: 0.2, 1: 0.5, 2: 0.3}) == 0.5 + 0.3 * 2)
@@ -403,12 +403,6 @@ class Test(unittest.TestCase):
             get_wound_ratio(
                 Weapon(hit="6", a="D6", s="2", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=-1)),
                 Target(4)))
-        #  2) WS|BS > 6
-        self.assertEqual(
-            get_hit_ratio(
-                Weapon(hit="10", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))),
-            get_hit_ratio(
-                Weapon(hit="6", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))))
         # assert 1 is always a failure to hit or wound
         #  1) Modifiers
         self.assertEqual(
@@ -423,12 +417,6 @@ class Test(unittest.TestCase):
             get_wound_ratio(
                 Weapon(hit="6", a="D6", s="8", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=+1)),
                 Target(4)))
-        #  2) WS|BS < 2
-        self.assertEqual(
-            get_hit_ratio(
-                Weapon(hit="0", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))),
-            get_hit_ratio(
-                Weapon(hit="2", a="D6", s="4", ap="D6", d="D6", options=Options(hit_modifier=0, wound_modifier=0))))
         # auto_hit
         self.assertTrue(
             get_hit_ratio(
@@ -439,10 +427,12 @@ class Test(unittest.TestCase):
             ) == 1
         )
 
-        self.assertTrue(scores_to_z(10000, 1) == 1)
-        self.assertTrue(scores_to_z(1, 10000) == -1)
+        self.assertTrue(scores_to_z(100000, 1) == 1)
+        self.assertTrue(scores_to_z(1, 100000) == -1)
         self.assertTrue(scores_to_z(100, 1) == 0.99)
         self.assertTrue(scores_to_z(1, 100) == -0.99)
+        self.assertTrue(scores_to_z(1000, 1) == 0.999)
+        self.assertTrue(scores_to_z(1, 1000) == -0.999)
         self.assertTrue(scores_to_z(1, 1) == 0)
         self.assertTrue(scores_to_ratio(1, 1) == 1)
         self.assertTrue(scores_to_ratio(1, 2) == 2.0)
