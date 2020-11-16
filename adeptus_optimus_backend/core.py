@@ -208,18 +208,27 @@ class Options:
 
 
 class Profile:
-    def __init__(self, weapons, points):
+    allowed_points_expr_chars = set("0123456789/*-+() ")
+
+    def __init__(self, weapons, points_expr):
         assert (isinstance(weapons, list))
         require(len(weapons) > 0, "An attacking profile must have at least one declared weapon")
         assert (isinstance(weapons[0], Weapon))
         self.weapons = weapons
+        points_expr_chars = {c for c in points_expr}
+        invalid_chars = points_expr_chars - Profile.allowed_points_expr_chars
+        require(not len(invalid_chars), f"Invalid characters found in points expression: {invalid_chars}")
         try:
-            self.points = int(points)
+            points_expr_evaluated = eval(points_expr)  # safe eval: contains only arithmetic characters
+        except Exception as e:
+            raise RequirementError(f"Invalid arithmetic expression for points '{points_expr}': {e}")
+        try:
+            self.points = int(points_expr_evaluated)
         except ValueError:
             self.points = None
         except Exception as e:
             raise e
-        require(self.points is not None and self.points > 0, f"Invalid points value: '{points}'")
+        require(self.points is not None and self.points > 0, f"Invalid points value: '{points_expr}'")
 
 
 class Weapon:
@@ -228,7 +237,8 @@ class Weapon:
     def __init__(self, hit="4", a="1", s="4", ap="0", d="1", options=Options.empty()):
         # prob by roll result: O(n*dice_type)
         self.hit = parse_dice_expr(hit, complexity_threshold=24, raise_on_failure=True)  # only one time O(n*dice_type)
-        require(self.hit.dices_type is None, "Random Balistic/Weapon Skill is not allowed")
+        require(self.hit.dices_type is None, "Random Ballistic/Weapon Skill is not allowed")
+        require(2 <= self.hit.n <= 6, "Ballistic/Weapon Skill must be between 2 and 6 (included)")
         self.a = parse_dice_expr(a, complexity_threshold=128, raise_on_failure=True)  # only one time 0(n)
         require(self.a.avg != 0, "Number of Attacks cannot be 0")
 

@@ -164,7 +164,7 @@ class Test(unittest.TestCase):
                                         "reroll_damages": "yes",
                                         "roll_damages_twice": "",
                                         "snipe": "2D3,wound,3"}).snipe["x"] == DiceExpr(2, 3))
-        self.assertRaises(RequirementFailError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
+        self.assertRaises(RequirementError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
 
         self.assertTrue(get_avg_of_density({0: 0.2, 1: 0.5, 2: 0.3}) == 0.5 + 0.3 * 2)
         wea = Weapon(hit="4", a="4", s="4", ap="1", d="3", options=Options(hit_modifier=0, wound_modifier=0))

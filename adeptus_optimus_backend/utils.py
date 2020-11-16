@@ -41,7 +41,7 @@ def map_7_to_None(v):
     return None if v == 7 else v
 
 
-class RequirementFailError(Exception):
+class RequirementError(Exception):
     pass
 
 
@@ -51,7 +51,7 @@ def require(predicate, error_message):
     except TypeError:
         pass
     if not (predicate):
-        raise RequirementFailError(error_message)
+        raise RequirementError(error_message)
 
 
 class DiceExpr:
@@ -121,7 +121,7 @@ def parse_dice_expr(d, complexity_threshold=18, raise_on_failure=False, allow_st
         if res is not None and res.n * (1 if res.dices_type is None else res.dices_type) > complexity_threshold:
             res = None
         if raise_on_failure:
-            require(res is not None, f"Invalid dices expression: '{d}' {invalidity_details}")
+            require(res is not None, f"Invalid input: '{d}' {invalidity_details}")
         return res
 
 

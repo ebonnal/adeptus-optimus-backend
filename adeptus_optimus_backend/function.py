@@ -2,7 +2,7 @@ import json
 import traceback
 from time import time
 
-from .utils import RequirementFailError, with_minimum_exec_time, is_dev_execution
+from .utils import RequirementError, with_minimum_exec_time, is_dev_execution
 from .core import compute_heatmap, Profile, Weapon
 
 
@@ -62,7 +62,7 @@ def treat_request(request, allowed_origin):
             params = json.loads(params)
             try:
                 response = compute_heatmap(*parse_params(params)), 200, headers
-            except RequirementFailError as e:
+            except RequirementError as e:
                 response = {"msg": f"INVALID INPUT: {e}"}, 422, headers
         elif share_settings is not None:  # dynamic short link gen
             response = {"link": f"https://adeptus-optimus.web.app?share_settings={share_settings}"}, 200, headers
