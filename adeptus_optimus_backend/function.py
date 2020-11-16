@@ -66,7 +66,11 @@ def treat_request(request, allowed_origin):
                 response = {"msg": f"INVALID INPUT: {e}"}, 422, headers
         elif share_settings is not None:  # dynamic short link gen
             link = f"https://adeptus-optimus.web.app?share_settings={share_settings}"
-            response = {"link": get_short_dynamic_link(link)}, 200, headers
+            if is_dev_execution():
+                short_dynamic_link = link
+            else:
+                short_dynamic_link = get_short_dynamic_link(link)
+            response = {"link": short_dynamic_link}, 200, headers
         else:
             raise RuntimeError("Request json query string should contain key 'share_settings' or 'params'")
     except Exception as e:
