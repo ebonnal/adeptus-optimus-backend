@@ -241,7 +241,8 @@ class Weapon:
 
     def __init__(self, hit="4", a="1", s="4", ap="0", d="1", options=Options.empty()):
         # prob by roll result: O(n*dice_type)
-        self.hit = parse_dice_expr(hit, complexity_threshold=float("inf"), raise_on_failure=True)  # only one time O(n*dice_type)
+        self.hit = parse_dice_expr(hit, complexity_threshold=float("inf"),
+                                   raise_on_failure=True)  # only one time O(n*dice_type)
         require(self.hit.dices_type is None, "Random Ballistic/Weapon Skill is not allowed")
         require(2 <= self.hit.n <= 6, f"Ballistic/Weapon Skill must be between 2 and 6 (included), not '{self.hit}'")
         self.a = parse_dice_expr(a, complexity_threshold=128, raise_on_failure=True)  # only one time 0(n)
@@ -271,14 +272,14 @@ class Weapon:
         )
         require(
             self.options.snipe is None or self.options.snipe[Options.snipe_threshold] <=
-            {Options.strength: self.s.max, Options.wound: 6 + self.options.wound_modifier}[self.options.snipe[Options.snipe_roll_type]],
+            {Options.strength: self.s.max, Options.wound: 6 + self.options.wound_modifier}[
+                self.options.snipe[Options.snipe_roll_type]],
             lambda: f"""Cannot activate '{Options.opt_key_to_repr[Options.snipe_key]}': A {self.options.snipe[Options.snipe_roll_type]} roll of {self.options.snipe[Options.snipe_threshold]}+ is impossible"""
         )
 
         require(self.s.avg != 0, "Strength cannot be 0")
         if self.options.is_blast:
             Weapon.at_least_one_blast_weapon = True
-        self.hit_ratio = get_hit_ratio(self)
 
 
 class Target:
@@ -303,12 +304,61 @@ class Target:
 
 
 # Function runtime caches:
-success_ratios_cache = {}
-n_attacks_cache = {}
-hit_ratios_cache = {}
-wound_ratios_cache = {}
-unsaved_wound_ratios_cache = {}
-slained_figs_percent_per_unsaved_wound_cache = {}
+class CachesHolder:
+    prob_by_roll_result_cache = {}
+    success_ratios_cache = {}
+    n_attacks_cache = {}
+    hit_ratios_cache = {}
+    wound_ratios_cache = {}
+    unsaved_wound_ratios_cache = {}
+    slained_figs_percent_per_unsaved_wound_cache = {}
+
+
+def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0, roll_twice=False):
+    """
+    :param reroll_if_less_than: dictates the reroll (reroll all dices) policy, 0 means a reroll never occurs
+    """
+    assert (reroll_if_less_than >= 0)
+    assert (reroll_if_less_than == 0 or not roll_twice)
+    key = f"{dice_expr},{reroll_if_less_than},{roll_twice},"
+    prob_by_roll_result = CachesHolder.prob_by_roll_result_cache.get(key, None)
+    if prob_by_roll_result is None:
+        if dice_expr.dices_type is None:
+            prob_by_roll_result = {dice_expr.n: 1}
+        else:
+            roll_results_counts = {}
+
+            def f(n, current_sum):
+                if n == 0:
+                    roll_results_counts[current_sum] = roll_results_counts.get(current_sum, 0) + 1
+                else:
+                    for i in range(1, dice_expr.dices_type + 1):
+                        f(n - 1, current_sum + i)
+
+            f(dice_expr.n, 0)
+            n_cases = sum(roll_results_counts.values())
+            prob_by_roll_result = {k: v / n_cases for k, v in roll_results_counts.items()}
+            if reroll_if_less_than > 0:
+                prob_by_roll_result_items = prob_by_roll_result.items()
+                prob_by_roll_result = {k: (0 if k < reroll_if_less_than else v) for k, v in prob_by_roll_result_items}
+                # reach depth 2 nodes (reroll) participations
+                for roll, prob_roll in prob_by_roll_result_items:
+                    if roll < reroll_if_less_than:
+                        for r, prob_r in prob_by_roll_result_items:
+                            prob_by_roll_result[r] += prob_roll * prob_r
+
+            elif roll_twice:
+
+                prob_by_roll_result_items = prob_by_roll_result.items()
+                prob_by_roll_result = {k: 0 for k, v in prob_by_roll_result_items}
+                # reach depth 2 nodes (reroll) participations
+                for r1, prob_r1 in prob_by_roll_result_items:
+                    for r2, prob_r2 in prob_by_roll_result_items:
+                        prob_by_roll_result[max(r1, r2)] += prob_r1 * prob_r2
+
+        CachesHolder.prob_by_roll_result_cache[key] = prob_by_roll_result
+        assert (float_eq(sum(prob_by_roll_result.values()), 1))
+    return prob_by_roll_result
 
 
 def get_n_attacks(weapon, target):
@@ -318,7 +368,7 @@ def get_n_attacks(weapon, target):
     if weapon.options.is_blast and target.n_models > 5:
         key += f"{target.n_models},"
 
-    n_attacks = n_attacks_cache.get(key, None)
+    n_attacks = CachesHolder.n_attacks_cache.get(key, None)
     if n_attacks is None:
         if not weapon.options.is_blast or target.n_models <= 5:
             n_attacks = weapon.a.avg
@@ -331,7 +381,7 @@ def get_n_attacks(weapon, target):
             else:
                 n_attacks = weapon.a.n * weapon.a.dices_type
 
-        n_attacks_cache[key] = n_attacks
+        CachesHolder.n_attacks_cache[key] = n_attacks
     return n_attacks
 
 
@@ -339,7 +389,7 @@ def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Op
     assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.full})
     assert (dakka3 in {Options.none, 5, 6})
     key = f"{modified_necessary_roll},{auto_success_on_6},{reroll},{dakka3},"
-    success_ratio = success_ratios_cache.get(key, None)
+    success_ratio = CachesHolder.success_ratios_cache.get(key, None)
     if success_ratio is None:
         necessary_roll = modified_necessary_roll
         if modified_necessary_roll <= 1:
@@ -358,7 +408,7 @@ def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Op
             dakka3=dakka3
         )
 
-        success_ratios_cache[key] = success_ratio
+        CachesHolder.success_ratios_cache[key] = success_ratio
 
     return success_ratio
 
@@ -388,7 +438,7 @@ def get_hit_ratio(weapon):
           f"{weapon.options.reroll_hits}," \
           f"{weapon.options.dakka3}," \
           f"{weapon.options.auto_hit},"
-    hit_ratio = hit_ratios_cache.get(key, None)
+    hit_ratio = CachesHolder.hit_ratios_cache.get(key, None)
     if hit_ratio is None:
         if weapon.options.auto_hit:
             hit_ratio = 1
@@ -397,7 +447,7 @@ def get_hit_ratio(weapon):
                                           reroll=weapon.options.reroll_hits,
                                           dakka3=weapon.options.dakka3)
 
-        hit_ratios_cache[key] = hit_ratio
+        CachesHolder.hit_ratios_cache[key] = hit_ratio
 
     return hit_ratio
 
@@ -420,7 +470,7 @@ def get_wound_ratio(weapon, target):
     if weapon.options.auto_wounds_on:
         key += f"{weapon.options.auto_wounds_on},{weapon.hit},{weapon.options.hit_modifier},"
 
-    wound_ratio = wound_ratios_cache.get(key, None)
+    wound_ratio = CachesHolder.wound_ratios_cache.get(key, None)
     if wound_ratio is None:
         wound_ratio = 0
         if weapon.options.wounds_by_2D6:
@@ -447,7 +497,7 @@ def get_wound_ratio(weapon, target):
                     wound_ratio += prob_s_roll * \
                                    ((1 - auto_wounding_hit_rolls_ratio) * success_ratio + auto_wounding_hit_rolls_ratio)
 
-        wound_ratios_cache[key] = wound_ratio
+        CachesHolder.wound_ratios_cache[key] = wound_ratio
 
     return wound_ratio
 
@@ -461,7 +511,7 @@ def get_unsaved_wound_ratio(weapon, target):
           f"{target.invu}," \
           f"{weapon.options.save_modifier},"
 
-    unsaved_wound_ratio = unsaved_wound_ratios_cache.get(key, None)
+    unsaved_wound_ratio = CachesHolder.unsaved_wound_ratios_cache.get(key, None)
     if unsaved_wound_ratio is None:
         unsaved_wound_ratio = 0
         for ap_roll, prob_ap_roll in get_prob_by_roll_result(weapon.ap).items():
@@ -470,7 +520,7 @@ def get_unsaved_wound_ratio(weapon, target):
                 save_roll = min(save_roll, target.invu)
             save_fail_ratio = 1 - get_success_ratio(save_roll - weapon.options.save_modifier, auto_success_on_6=False)
             unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
-        unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
+        CachesHolder.unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
 
     return unsaved_wound_ratio
 
@@ -626,7 +676,7 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
           f"{weapon.options.reroll_damages}," \
           f"{weapon.options.roll_damages_twice},"
 
-    slained_figs_percent_per_unsaved_wound = slained_figs_percent_per_unsaved_wound_cache.get(key, None)
+    slained_figs_percent_per_unsaved_wound = CachesHolder.slained_figs_percent_per_unsaved_wound_cache.get(key, None)
 
     if slained_figs_percent_per_unsaved_wound is None:
         assert (isinstance(weapon, Weapon))
@@ -651,7 +701,7 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
                 n_figs_slained_so_far=0,
                 remaining_target_wounds=target.w)) / State.n_unsaved_wounds_init
 
-        slained_figs_percent_per_unsaved_wound_cache[key] = slained_figs_percent_per_unsaved_wound
+        CachesHolder.slained_figs_percent_per_unsaved_wound_cache[key] = slained_figs_percent_per_unsaved_wound
 
     return slained_figs_percent_per_unsaved_wound
 
@@ -682,16 +732,16 @@ def scores_to_z(score_a, score_b):
     return round(z, 4)  # round(z, 3) 91.8kB
 
 
-def y_dims_to_str(l):
+def construct_y_label(l):
     show_n_models = Weapon.at_least_one_blast_weapon
     if show_n_models:
-        n_models_label = f"unit size:{map_n_models_to_label(l[3])}, "
+        n_models_label = f"unit size:{get_n_models_label(l[3])}, "
     else:
         n_models_label = ""
     return f"""{n_models_label}FNP:{"-" if l[2] is None else f"{l[2]}+"}, T:{l[0]}, W:{l[1]}"""
 
 
-def x_dims_to_str(l):
+def construct_x_label(l):
     return f"""Sv:{"-" if l[0] is None else f"{l[0]}+"}, Invu:{"-" if l[1] is None else f"{l[1]}+"}"""
 
 
@@ -702,7 +752,7 @@ def scores_to_ratio(score_a, score_b):
         return round(score_b / score_a, 4)
 
 
-def map_n_models_to_label(n_models):
+def get_n_models_label(n_models):
     if n_models == 1:
         return "1to5"
     elif n_models == 6:
@@ -713,26 +763,9 @@ def map_n_models_to_label(n_models):
         raise RuntimeError
 
 
-def compute_heatmap(profile_a, profile_b, no_caches=False):
+def compute_heatmap(profile_a, profile_b):
     assert (isinstance(profile_a, Profile))
     assert (isinstance(profile_b, Profile))
-    if no_caches:
-        global success_ratios_cache, \
-            n_attacks_cache, \
-            hit_ratios_cache, \
-            wound_ratios_cache, \
-            unsaved_wound_ratios_cache, \
-            slained_figs_percent_per_unsaved_wound_cache
-
-        class FakeDict(dict):
-            pass
-
-        success_ratios_cache = FakeDict()
-        n_attacks_cache = FakeDict()
-        hit_ratios_cache = FakeDict()
-        wound_ratios_cache = FakeDict()
-        unsaved_wound_ratios_cache = FakeDict()
-        slained_figs_percent_per_unsaved_wound_cache = FakeDict()
 
     res = {}
     ts_ws_fnps_nm = []
@@ -770,19 +803,19 @@ def compute_heatmap(profile_a, profile_b, no_caches=False):
                     ts_ws_fnps_nm.append((t, w, fnp, n_models))
 
     # n_models then fnp, then toughness, then wounds
-    ts_ws_fnps_nm.sort(key=lambda e: e[2] * 10000 - e[3] * 1000000 - e[0] * 100 - e[1])
-    ts_ws_fnps_nm = list(map(lambda l: [l[0], l[1], map_7_to_None(l[2]), l[3]], ts_ws_fnps_nm))
+    ts_ws_fnps_nm.sort(key=lambda e: (- e[3], e[2], - e[0], - e[1]))
+    ts_ws_fnps_nm = map(lambda l: [l[0], l[1], map_7_to_None(l[2]), l[3]], ts_ws_fnps_nm)
 
-    res["y"] = list(map(y_dims_to_str, ts_ws_fnps_nm))
+    res["y"] = list(map(construct_y_label, ts_ws_fnps_nm))
 
     svs = []
     for invu in [2, 3, 4, 5, 6, 7]:
         for sv in range(1, min(invu + 1, 6 + 1)):
             svs.append((sv, invu))
-    svs.sort(key=lambda e: -e[0] * 10 + -e[1])
+    svs.sort(key=lambda e: (-e[0], -e[1]))
     svs = list(map(lambda l: list(map(map_7_to_None, l)), svs))
 
-    res["x"] = list(map(x_dims_to_str, svs))
+    res["x"] = list(map(construct_x_label, svs))
 
     targets_matrix = [
         [
@@ -800,13 +833,13 @@ def compute_heatmap(profile_a, profile_b, no_caches=False):
                         weapon_a,
                         target,
                         get_n_attacks(weapon_a, target),
-                        weapon_a.hit_ratio
+                        get_hit_ratio(weapon_a)
                     ) for weapon_a in profile_a.weapons],
                     [score_weapon_on_target(
                         weapon_b,
                         target,
                         get_n_attacks(weapon_b, target),
-                        weapon_b.hit_ratio
+                        get_hit_ratio(weapon_b)
                     ) for weapon_b in profile_b.weapons]
                 ]
                 for target in line
@@ -838,13 +871,13 @@ def compute_heatmap(profile_a, profile_b, no_caches=False):
 
     if is_dev_execution():
         print(f"caches stats:")
-        print(f"\tsize of prob_by_roll_result_cache={len(prob_by_roll_result_cache)}")
-        print(f"\tsize of success_ratios_cache={len(success_ratios_cache)}")
-        print(f"\tsize of n_attacks_cache={len(n_attacks_cache)}")
-        print(f"\tsize of hit_ratios_cache={len(hit_ratios_cache)}")
-        print(f"\tsize of wound_ratios_cache={len(wound_ratios_cache)}")
-        print(f"\tsize of unsaved_wound_ratios_cache={len(unsaved_wound_ratios_cache)}")
+        print(f"\tsize of prob_by_roll_result_cache={len(CachesHolder.prob_by_roll_result_cache)}")
+        print(f"\tsize of success_ratios_cache={len(CachesHolder.success_ratios_cache)}")
+        print(f"\tsize of n_attacks_cache={len(CachesHolder.n_attacks_cache)}")
+        print(f"\tsize of hit_ratios_cache={len(CachesHolder.hit_ratios_cache)}")
+        print(f"\tsize of wound_ratios_cache={len(CachesHolder.wound_ratios_cache)}")
+        print(f"\tsize of unsaved_wound_ratios_cache={len(CachesHolder.unsaved_wound_ratios_cache)}")
         print(f"\tsize of slained_figs_percent_per_unsaved_wound_cache="
-              f"{len(slained_figs_percent_per_unsaved_wound_cache)}")
+              f"{len(CachesHolder.slained_figs_percent_per_unsaved_wound_cache)}")
 
     return res

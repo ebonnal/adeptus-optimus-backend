@@ -3,11 +3,35 @@ import unittest
 from adeptus_optimus_backend import *
 from time import time
 
+from adeptus_optimus_backend.core import CachesHolder
+
+set_is_dev_execution(True)
+
 
 class Test(unittest.TestCase):
+
     def test_compute_heatmap(self):
-        # TODO with and without cache
-        pass
+        profile_a = Profile([Weapon(hit="2", s="1")], "1")
+        profile_b = Profile([Weapon(s="8")], "100")
+        # with cache:
+        matrix1 = compute_heatmap(profile_a, profile_b)["z"]
+
+        class UnfillableDict(dict):
+            def __setitem__(self, key, value):
+                pass
+
+        CachesHolder.prob_by_roll_result_cache = UnfillableDict()
+        CachesHolder.success_ratios_cache = UnfillableDict()
+        CachesHolder.n_attacks_cache = UnfillableDict()
+        CachesHolder.hit_ratios_cache = UnfillableDict()
+        CachesHolder.wound_ratios_cache = UnfillableDict()
+        CachesHolder.unsaved_wound_ratios_cache = UnfillableDict()
+        CachesHolder.slained_figs_percent_per_unsaved_wound_cache = UnfillableDict()
+
+        matrix2 = compute_heatmap(profile_a, profile_b)["z"]
+        self.assertTrue(
+            all([all([e1 == e2 for e1, e2 in zip(line1, line2)]) for line1, line2 in zip(matrix1, matrix2)])
+        )
 
     def test_doms_alloc(self):
         # Damages reroll

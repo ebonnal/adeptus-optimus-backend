@@ -6,6 +6,7 @@ from .utils import RequirementError, with_minimum_exec_time, is_dev_execution
 from .core import compute_heatmap, Profile, Weapon
 from .link import get_short_dynamic_link
 
+
 def parse_profile(letter, params):
     present_indexes = []
     params_keys = params.keys()

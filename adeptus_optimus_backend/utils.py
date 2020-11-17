@@ -138,56 +138,6 @@ def parse_roll(roll):
         return int(res.group(1))
 
 
-prob_by_roll_result_cache = {}
-
-
-def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0, roll_twice=False):
-    """
-    :param reroll_if_less_than: dictates the reroll (reroll all dices) policy, 0 means a reroll never occurs
-    """
-    assert (reroll_if_less_than >= 0)
-    assert (reroll_if_less_than == 0 or not roll_twice)
-    key = f"{dice_expr},{reroll_if_less_than},{roll_twice},"
-    prob_by_roll_result = prob_by_roll_result_cache.get(key, None)
-    if prob_by_roll_result is None:
-        if dice_expr.dices_type is None:
-            prob_by_roll_result = {dice_expr.n: 1}
-        else:
-            roll_results_counts = {}
-
-            def f(n, current_sum):
-                if n == 0:
-                    roll_results_counts[current_sum] = roll_results_counts.get(current_sum, 0) + 1
-                else:
-                    for i in range(1, dice_expr.dices_type + 1):
-                        f(n - 1, current_sum + i)
-
-            f(dice_expr.n, 0)
-            n_cases = sum(roll_results_counts.values())
-            prob_by_roll_result = {k: v / n_cases for k, v in roll_results_counts.items()}
-            if reroll_if_less_than > 0:
-                prob_by_roll_result_items = prob_by_roll_result.items()
-                prob_by_roll_result = {k: (0 if k < reroll_if_less_than else v) for k, v in prob_by_roll_result_items}
-                # reach depth 2 nodes (reroll) participations
-                for roll, prob_roll in prob_by_roll_result_items:
-                    if roll < reroll_if_less_than:
-                        for r, prob_r in prob_by_roll_result_items:
-                            prob_by_roll_result[r] += prob_roll * prob_r
-
-            elif roll_twice:
-
-                prob_by_roll_result_items = prob_by_roll_result.items()
-                prob_by_roll_result = {k: 0 for k, v in prob_by_roll_result_items}
-                # reach depth 2 nodes (reroll) participations
-                for r1, prob_r1 in prob_by_roll_result_items:
-                    for r2, prob_r2 in prob_by_roll_result_items:
-                        prob_by_roll_result[max(r1, r2)] += prob_r1 * prob_r2
-
-        prob_by_roll_result_cache[key] = prob_by_roll_result
-        assert (float_eq(sum(prob_by_roll_result.values()), 1))
-    return prob_by_roll_result
-
-
 def compute_necessary_wound_roll(f, e):
     if f >= 2 * e:
         return 2
