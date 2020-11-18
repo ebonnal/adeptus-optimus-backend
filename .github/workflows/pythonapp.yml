@@ -20,5 +20,5 @@ jobs:
 
     - name: unittest
       run: |
-        pip install requests
+        pip install -r ./requirements.txt
         python -m unittest
