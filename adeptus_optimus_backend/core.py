@@ -149,6 +149,8 @@ class Options:
         self.reroll_damages = reroll_damages
         self.roll_damages_twice = roll_damages_twice
         self.snipe = snipe  # a part of snipe validation is in Options.parse_snipe and another part in Weapon.__init__
+        require(self.snipe == Options.not_activated_value[Options.snipe_key],
+                f"Option '{Options.opt_key_to_repr[Options.snipe_key]}' is temporarily unavailable")
 
         # Compatibility check:
         for opt_key1, incompatible_opt_keys in Options.incompatibilities.items():
