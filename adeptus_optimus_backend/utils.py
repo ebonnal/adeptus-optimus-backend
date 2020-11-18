@@ -15,7 +15,7 @@ def apply_mask_matrix(matrix, mask_matrix, predicate_on_mask_matrix):
 
 def float_eq(a, b, n_same_decimals=8, verbose=False):
     assert (type(n_same_decimals) is int and type(verbose) is bool)
-    if verbose:
+    if verbose and is_dev_execution():
         print(f"a={a}, b={b}")
         print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
     return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b

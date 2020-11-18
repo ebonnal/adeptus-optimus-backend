@@ -5,7 +5,7 @@ from time import time
 
 from adeptus_optimus_backend.core import CachesHolder
 
-set_is_dev_execution(False)
+set_is_dev_execution(True)
 
 
 class Test(unittest.TestCase):

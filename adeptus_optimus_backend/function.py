@@ -80,6 +80,7 @@ def treat_request(request, allowed_origin):
         response = {"msg": f"{type(e)}: {e}"}, 500, headers
     if is_dev_execution():
         print(f"Request processing took {time() - start_time} seconds")
+    print(f"ip:{request.remote_addr}")
     return response
 
 
