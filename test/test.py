@@ -15,7 +15,8 @@ class Test(unittest.TestCase):
         profile_b = Profile([Weapon(s="8")], "100")
         # with cache:
         z_matrix_1 = compute_heatmap(profile_a, profile_b)["z"]
-        self.assertEqual(0.97, z_matrix_1[-1][-1])
+        self.assertEqual(None, z_matrix_1[-1][-1])
+        self.assertEqual(0.97, z_matrix_1[-1][0])
 
         class UnfillableDict(dict):
             def __setitem__(self, key, value):
@@ -36,18 +37,18 @@ class Test(unittest.TestCase):
 
     def test_doms_alloc(self):
         # Snipe
-        self.assertTrue(float_eq(
-            get_slained_figs_percent_per_unsaved_wound(
-                Weapon(d="1", options=Options(
-                    snipe={
-                        Options.snipe_roll_type: Options.wound,
-                        Options.snipe_threshold: 6,
-                        Options.snipe_n_mortals: 1
-                    }
-                )),
-                Target(w=100)
-            ), 0.01, verbose=True
-        ))
+        # self.assertTrue(float_eq(
+        #     get_slained_figs_percent_per_unsaved_wound(
+        #         Weapon(d="1", options=Options(
+        #             snipe={
+        #                 Options.snipe_roll_type: Options.wound,
+        #                 Options.snipe_threshold: 6,
+        #                 Options.snipe_n_mortals: 1
+        #             }
+        #         )),
+        #         Target(w=100)
+        #     ), 0.01, verbose=True
+        # ))
         # Damages reroll
         self.assertTrue(
             float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4)),
@@ -189,7 +190,7 @@ class Test(unittest.TestCase):
 
     def test_engine_core(self):
         # Options general
-        self.assertTrue(Options.parse({"hit_modifier": "",
+        self.assertEqual(Options.parse({"hit_modifier": "",
                                        "wound_modifier": "",
                                        "save_modifier": "",
                                        "reroll_hits": "ones",
@@ -201,7 +202,9 @@ class Test(unittest.TestCase):
                                        "wounds_by_2D6": "",
                                        "reroll_damages": "yes",
                                        "roll_damages_twice": "",
-                                       "snipe": "wound,3,2D3"}).snipe["n_mortals"] == DiceExpr(2, 3))
+                                       "snipe": ""}).dakka3, 5)
+        self.assertEqual(Options.parse_snipe("wound,3,2D3")[Options.snipe_n_mortals], DiceExpr(2, 3))
+
         self.assertRaises(RequirementError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
 
         self.assertTrue(get_avg_of_density({0: 0.2, 1: 0.5, 2: 0.3}) == 0.5 + 0.3 * 2)
