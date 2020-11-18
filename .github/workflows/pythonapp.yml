@@ -20,4 +20,5 @@ jobs:
 
     - name: unittest
       run: |
+        pip install requests
         python -m unittest
