@@ -804,7 +804,7 @@ def compute_heatmap(profile_a, profile_b):
 
     # n_models then fnp, then toughness, then wounds
     ts_ws_fnps_nm.sort(key=lambda e: (- e[3], e[2], - e[0], - e[1]))
-    ts_ws_fnps_nm = map(lambda l: [l[0], l[1], map_7_to_None(l[2]), l[3]], ts_ws_fnps_nm)
+    ts_ws_fnps_nm = list(map(lambda l: [l[0], l[1], map_7_to_None(l[2]), l[3]], ts_ws_fnps_nm))
 
     res["y"] = list(map(construct_y_label, ts_ws_fnps_nm))
 
@@ -863,8 +863,13 @@ def compute_heatmap(profile_a, profile_b):
         for line in exact_scores
     ]
 
-    res["z"] = [[scores_to_z(score_a, score_b) for score_a, score_b in line] for line in
-                score_a_score_b_tuples]
+    zs = [[scores_to_z(score_a, score_b) for score_a, score_b in line] for line in score_a_score_b_tuples]
+
+    res["z"] = apply_mask_matrix(
+        matrix=zs,
+        mask_matrix=targets_matrix,
+        predicate_on_mask_matrix=lambda target: 14 > target.t + target.sv > 5
+    )
 
     res["ratios"] = [[scores_to_ratio(score_a, score_b) for score_a, score_b in line] for line in
                      score_a_score_b_tuples]

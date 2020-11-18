@@ -3,8 +3,20 @@ import re
 from time import time, sleep
 
 
+def apply_mask_matrix(matrix, mask_matrix, predicate_on_mask_matrix):
+    return [
+        [
+            e if predicate_on_mask_matrix(e_mask) else None
+            for e, e_mask in zip(l, l_mask)
+        ]
+        for l, l_mask in zip(matrix, mask_matrix)
+    ]
+
+
 def float_eq(a, b, n_same_decimals=8, verbose=False):
+    assert (type(n_same_decimals) is int and type(verbose) is bool)
     if verbose:
+        print(f"a={a}, b={b}")
         print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
     return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
 

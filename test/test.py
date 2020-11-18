@@ -5,7 +5,7 @@ from time import time
 
 from adeptus_optimus_backend.core import CachesHolder
 
-set_is_dev_execution(True)
+set_is_dev_execution(False)
 
 
 class Test(unittest.TestCase):
@@ -14,7 +14,8 @@ class Test(unittest.TestCase):
         profile_a = Profile([Weapon(hit="2", s="1")], "1")
         profile_b = Profile([Weapon(s="8")], "100")
         # with cache:
-        matrix1 = compute_heatmap(profile_a, profile_b)["z"]
+        z_matrix_1 = compute_heatmap(profile_a, profile_b)["z"]
+        self.assertEqual(0.97, z_matrix_1[-1][-1])
 
         class UnfillableDict(dict):
             def __setitem__(self, key, value):
@@ -28,12 +29,25 @@ class Test(unittest.TestCase):
         CachesHolder.unsaved_wound_ratios_cache = UnfillableDict()
         CachesHolder.slained_figs_percent_per_unsaved_wound_cache = UnfillableDict()
 
-        matrix2 = compute_heatmap(profile_a, profile_b)["z"]
+        z_matrix_2 = compute_heatmap(profile_a, profile_b)["z"]
         self.assertTrue(
-            all([all([e1 == e2 for e1, e2 in zip(line1, line2)]) for line1, line2 in zip(matrix1, matrix2)])
+            all([all([e_1 == e_2 for e_1, e_2 in zip(line_1, line_2)]) for line_1, line_2 in zip(z_matrix_1, z_matrix_2)])
         )
 
     def test_doms_alloc(self):
+        # Snipe
+        self.assertTrue(float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: 1
+                    }
+                )),
+                Target(w=100)
+            ), 0.01, verbose=True
+        ))
         # Damages reroll
         self.assertTrue(
             float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4)),
