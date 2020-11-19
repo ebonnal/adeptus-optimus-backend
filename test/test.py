@@ -3,7 +3,7 @@ import unittest
 from adeptus_optimus_backend import *
 from time import time
 
-from adeptus_optimus_backend.core import CachesHolder
+from adeptus_optimus_backend.core import Caches
 
 set_is_dev_execution(True)
 
@@ -22,13 +22,13 @@ class Test(unittest.TestCase):
             def __setitem__(self, key, value):
                 pass
 
-        CachesHolder.prob_by_roll_result_cache = UnfillableDict()
-        CachesHolder.success_ratios_cache = UnfillableDict()
-        CachesHolder.n_attacks_cache = UnfillableDict()
-        CachesHolder.hit_ratios_cache = UnfillableDict()
-        CachesHolder.wound_ratios_cache = UnfillableDict()
-        CachesHolder.unsaved_wound_ratios_cache = UnfillableDict()
-        CachesHolder.slained_figs_percent_per_unsaved_wound_cache = UnfillableDict()
+        Caches.prob_by_roll_result_cache = UnfillableDict()
+        Caches.success_ratios_cache = UnfillableDict()
+        Caches.n_attacks_cache = UnfillableDict()
+        Caches.hit_ratios_cache = UnfillableDict()
+        Caches.wound_ratios_cache = UnfillableDict()
+        Caches.unsaved_wound_ratios_cache = UnfillableDict()
+        Caches.slained_figs_percent_per_unsaved_wound_cache = UnfillableDict()
 
         z_matrix_2 = compute_heatmap(profile_a, profile_b)["z"]
         self.assertTrue(
