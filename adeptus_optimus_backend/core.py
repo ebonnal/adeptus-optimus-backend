@@ -363,7 +363,7 @@ def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0, roll_twice=False):
     return prob_by_roll_result
 
 
-def get_n_attacks(weapon, target):
+def get_n_attacks_key(weapon, target):
     key = f"{weapon.a},"
     if weapon.options.is_blast and target.n_models > 5:
         key += f"{target.n_models},"
@@ -374,7 +374,7 @@ def get_n_attacks(weapon, target):
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
 
-    key = get_n_attacks(weapon, target)
+    key = get_n_attacks_key(weapon, target)
 
     n_attacks = Caches.n_attacks_cache.get(key, None)
     if n_attacks is None:
@@ -486,7 +486,7 @@ def get_wound_ratio(weapon, target):
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
 
-    key = get_wound_ratio_key()
+    key = get_wound_ratio_key(weapon, target)
 
     wound_ratio = Caches.wound_ratios_cache.get(key, None)
     if wound_ratio is None:
@@ -547,7 +547,7 @@ def get_unsaved_wound_ratio(weapon, target):
     return unsaved_wound_ratio
 
 
-class Cache:
+class DamagesAllocationCache:
     def __init__(self):
         self.dict = {}
         self.hits = 0
@@ -557,12 +557,12 @@ class Cache:
         return f"tries={self.tries}, hits={self.hits}, misses={self.tries - self.hits}"
 
     def add(self, state, cached_unweighted_downstream):
-        key = Cache._keyify(state)
+        key = DamagesAllocationCache._keyify(state)
         if self.dict.get(key, (0, 0))[0] < state.n_wounds_left:
             self.dict[key] = (state.n_wounds_left, cached_unweighted_downstream)
 
     def get(self, state):
-        res = self.dict.get(Cache._keyify(state), (None, None))
+        res = self.dict.get(DamagesAllocationCache._keyify(state), (None, None))
         self.tries += 1
         if res[0] is not None:
             self.hits += 1
@@ -576,41 +576,49 @@ class Cache:
 
     @staticmethod
     def _keyify(state):
-        return f"{state.current_wound_n_damages_left},{state.remaining_target_wounds},{state.n_wounds_left}"
+        return f"{state.current_wound_n_damages_left}," \
+               f"{state.remaining_target_wounds}," \
+               f"{state.n_wounds_left}," \
+               f"{state.current_wound_damages_are_mortal}"
 
 
-class State:
+class DmgAllocNode:
     reroll_damages = None
     weapon_d = None
+    weapon_options_snipe = None
     target_wounds = None
-    n_unsaved_wounds_init = None
+    n_wounds_init = None
     n_figs_slained_weighted_ratios = None
     fnp_fail_ratio = None
     start_target_wounds = None
     roll_damages_twice = None
+    cache = DamagesAllocationCache()
     unsaved_wound_ratio = None
-    cache = Cache()
+    prob_mortals = None
 
     def __init__(self,
-                 n_unsaved_wounds_left,  # key field, 0 when resolved
+                 n_wounds_left,  # key field, 0 when resolved
                  current_wound_n_damages_left,  # key field, 0 when resolved
+                 current_wound_damages_are_mortal,  # key field
                  n_figs_slained_so_far,  # value field
                  remaining_target_wounds,  # key field
                  ):
-        self.n_wounds_left = n_unsaved_wounds_left
+        self.n_wounds_left = n_wounds_left
         self.current_wound_n_damages_left = current_wound_n_damages_left
+        self.current_wound_damages_are_mortal = current_wound_damages_are_mortal
         self.n_figs_slained_so_far = n_figs_slained_so_far
         self.remaining_target_wounds = remaining_target_wounds
 
     def copy(self):
-        return State(self.n_wounds_left,
-                     self.current_wound_n_damages_left,
-                     self.n_figs_slained_so_far,
-                     self.remaining_target_wounds)
+        return DmgAllocNode(n_wounds_left=self.n_wounds_left,
+                            current_wound_n_damages_left=self.current_wound_n_damages_left,
+                            current_wound_damages_are_mortal=self.current_wound_damages_are_mortal,
+                            n_figs_slained_so_far=self.n_figs_slained_so_far,
+                            remaining_target_wounds=self.remaining_target_wounds)
 
 
 def get_slained_figs_percent(state_):
-    assert (isinstance(state_, State))
+    assert (isinstance(state_, DmgAllocNode))
     assert (state_.remaining_target_wounds >= 0)
     assert (state_.n_wounds_left >= 0)
     assert (state_.current_wound_n_damages_left >= 0)
@@ -618,73 +626,116 @@ def get_slained_figs_percent(state_):
 
     # resolve a model kill
     if state.remaining_target_wounds == 0:
-        state.remaining_target_wounds = State.target_wounds
+        state.remaining_target_wounds = DmgAllocNode.target_wounds
         # additionnal damages are not propagated to other models
         state.current_wound_n_damages_left = 0
         downstream = get_slained_figs_percent(state)
         downstream += 1
         return downstream  # upstream propagation of figs slained count
 
-    last_model_injured_frac = 1 - state.remaining_target_wounds / State.target_wounds
-
     if state.current_wound_n_damages_left == 0 and state.n_wounds_left == 0:
         # leaf: no more damages to fnp no more wounds to consume or p(leaf) < threshold
         # portion of the last model injured
-        State.cache.add(state, last_model_injured_frac)
+
+        last_model_injured_frac = 1 - state.remaining_target_wounds / DmgAllocNode.target_wounds
+        DmgAllocNode.cache.add(state, last_model_injured_frac)
         return last_model_injured_frac
     else:
         # test cache
         # cached_downstream = None
-        cached_res_n_unsaved_wounds_left, cached_downstream = State.cache.get(state)
-        if cached_downstream is not None and cached_res_n_unsaved_wounds_left >= state.n_wounds_left:
+        cached_res_n_wounds_left, cached_downstream = DmgAllocNode.cache.get(state)
+        if cached_downstream is not None and cached_res_n_wounds_left >= state.n_wounds_left:
             # use cached res if deep enough
             return cached_downstream
         else:
             if state.current_wound_n_damages_left == 0:
-                if cached_downstream is None or cached_res_n_unsaved_wounds_left < state.n_wounds_left:
+                if cached_downstream is None or cached_res_n_wounds_left < state.n_wounds_left:
                     # consume a wound
-                    # random doms handling
-                    if State.reroll_damages:
-                        prob_by_roll_result_list = [
-                            get_prob_by_roll_result(State.weapon_d,
-                                                    reroll_if_less_than=roll,
-                                                    roll_twice=State.roll_damages_twice)
-                            for roll in range(State.weapon_d.min, State.weapon_d.max)
-                        ]
+                    if state.current_wound_damages_are_mortal is None or state.current_wound_damages_are_mortal:
+                        # no mortals triggered after last wound consumption or just finished to alloc them
+
+                        if DmgAllocNode.reroll_damages:
+                            prob_by_roll_result_list = [
+                                get_prob_by_roll_result(DmgAllocNode.weapon_d,
+                                                        reroll_if_less_than=roll,
+                                                        roll_twice=DmgAllocNode.roll_damages_twice)
+                                for roll in range(DmgAllocNode.weapon_d.min, DmgAllocNode.weapon_d.max)
+                            ]
+                        else:
+                            prob_by_roll_result_list = \
+                                [get_prob_by_roll_result(DmgAllocNode.weapon_d, roll_twice=DmgAllocNode.roll_damages_twice)]
+
+                        downstream_saved_wound = get_slained_figs_percent(
+                            DmgAllocNode(n_wounds_left=state.n_wounds_left - 1,
+                                         current_wound_n_damages_left=state.current_wound_n_damages_left,
+                                         current_wound_damages_are_mortal=state.current_wound_damages_are_mortal,
+                                         n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                         remaining_target_wounds=state.remaining_target_wounds))
+                        downstream_unsaved_wound = max([
+                            sum([
+                                prob_d *
+                                get_slained_figs_percent(
+                                    DmgAllocNode(n_wounds_left=state.n_wounds_left - 1,
+                                                 current_wound_n_damages_left=d,
+                                                 current_wound_damages_are_mortal=False,
+                                                 n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                                 remaining_target_wounds=state.remaining_target_wounds))
+                                for d, prob_d in prob_by_roll_result.items()
+                            ])
+                            for prob_by_roll_result in prob_by_roll_result_list])
+                        downstream = DmgAllocNode.unsaved_wound_ratio * downstream_unsaved_wound + \
+                            (1 - DmgAllocNode.unsaved_wound_ratio) * downstream_saved_wound
                     else:
-                        prob_by_roll_result_list = \
-                            [get_prob_by_roll_result(State.weapon_d, roll_twice=State.roll_damages_twice)]
+                        # potential mortal: it does never consume a wound
+                        downstream_no_mortals = get_slained_figs_percent(
+                            DmgAllocNode(n_wounds_left=state.n_wounds_left,
+                                         current_wound_n_damages_left=state.current_wound_n_damages_left,
+                                         current_wound_damages_are_mortal=None,
+                                         n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                         remaining_target_wounds=state.remaining_target_wounds))
+                        if DmgAllocNode.weapon_options_snipe != Options.none:
 
-                    downstream = max([
-                        sum([
-                            prob_d *
-                            get_slained_figs_percent(State(n_unsaved_wounds_left=state.n_wounds_left - 1,
-                                                           current_wound_n_damages_left=d,
-                                                           n_figs_slained_so_far=state.n_figs_slained_so_far,
-                                                           remaining_target_wounds=state.remaining_target_wounds))
-                            for d, prob_d in prob_by_roll_result.items()
-                        ])
-                        for prob_by_roll_result in prob_by_roll_result_list])
+                            prob_by_roll_result = \
+                                get_prob_by_roll_result(DmgAllocNode.weapon_options_snipe[Options.snipe_n_mortals])
+                            downstream_with_mortals = sum([
+                                    prob_d *
+                                    get_slained_figs_percent(
+                                        DmgAllocNode(n_wounds_left=state.n_wounds_left,
+                                                     current_wound_n_damages_left=d,
+                                                     current_wound_damages_are_mortal=True,
+                                                     n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                                     remaining_target_wounds=state.remaining_target_wounds))
+                                    for d, prob_d in prob_by_roll_result.items()
+                                ])
 
-                    State.cache.add(state, downstream)
+                            downstream = DmgAllocNode.prob_mortals * downstream_with_mortals + \
+                                         (1 - DmgAllocNode.prob_mortals) * downstream_no_mortals
+                        else:
+                            downstream = downstream_no_mortals
+
+                    DmgAllocNode.cache.add(state, downstream)
                     return downstream
             else:
                 # FNP fail
-                f = get_slained_figs_percent(State(state.n_wounds_left,
-                                                   state.current_wound_n_damages_left - 1,
-                                                   state.n_figs_slained_so_far,
-                                                   state.remaining_target_wounds - 1))
+                f = get_slained_figs_percent(
+                    DmgAllocNode(n_wounds_left=state.n_wounds_left,
+                                 current_wound_n_damages_left=state.current_wound_n_damages_left - 1,
+                                 current_wound_damages_are_mortal=state.current_wound_damages_are_mortal,
+                                 n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                 remaining_target_wounds=state.remaining_target_wounds - 1))
 
                 # FNP success
-                if State.fnp_fail_ratio != 1:
-                    s = get_slained_figs_percent(State(state.n_wounds_left,
-                                                       state.current_wound_n_damages_left - 1,
-                                                       state.n_figs_slained_so_far,
-                                                       state.remaining_target_wounds))
-                    downstream = (1 - State.fnp_fail_ratio) * s + State.fnp_fail_ratio * f
+                if DmgAllocNode.fnp_fail_ratio != 1:
+                    s = get_slained_figs_percent(
+                        DmgAllocNode(n_wounds_left=state.n_wounds_left,
+                                     current_wound_n_damages_left=state.current_wound_n_damages_left - 1,
+                                     current_wound_damages_are_mortal=state.current_wound_damages_are_mortal,
+                                     n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                     remaining_target_wounds=state.remaining_target_wounds))
+                    downstream = (1 - DmgAllocNode.fnp_fail_ratio) * s + DmgAllocNode.fnp_fail_ratio * f
                 else:
                     downstream = f
-                State.cache.add(state, downstream)
+                DmgAllocNode.cache.add(state, downstream)
                 return downstream
 
 
@@ -693,7 +744,8 @@ def get_slained_figs_percent_per_unsaved_wound_key(weapon, target):
            f"{target.fnp}," \
            f"{target.w}," \
            f"{weapon.options.reroll_damages}," \
-           f"{weapon.options.roll_damages_twice},"
+           f"{weapon.options.roll_damages_twice}," \
+           f"{weapon.options.snipe}"
 
 
 def get_slained_figs_percent_per_unsaved_wound(weapon, target):
@@ -701,7 +753,9 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
     n_unsaved_wounds_init=32: 14 sec, res prec +-0.02 compared to 64
     n_unsaved_wounds_init=10:  5 sec, res prec +-0.1  compared to 64
     """
-    key = get_slained_figs_percent_per_unsaved_wound_key(weapon, target) + get_unsaved_wound_ratio_key(weapon, target)
+
+    key = get_slained_figs_percent_per_unsaved_wound_key(weapon, target) + \
+        get_unsaved_wound_ratio_key(weapon, target)
 
     slained_figs_percent_per_unsaved_wound = Caches.slained_figs_percent_per_unsaved_wound_cache.get(key, None)
 
@@ -712,22 +766,28 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
             slained_figs_percent_per_unsaved_wound = exact_avg_figs_fraction_slained_per_unsaved_wound(d=weapon.d.n,
                                                                                                        w=target.w)
         else:
-            State.reroll_damages = weapon.options.reroll_damages
-            State.weapon_d = weapon.d
-            State.target_wounds = target.w
-            State.n_unsaved_wounds_init = 16
-            State.n_figs_slained_weighted_ratios = []
-            State.fnp_fail_ratio = 1 if target.fnp is None else 1 - get_success_ratio(target.fnp)
-            State.start_target_wounds = target.w
-            State.roll_damages_twice = weapon.options.roll_damages_twice
-            State.unsaved_wound_ratio = get_unsaved_wound_ratio(weapon, target)
-            State.cache.reset()
+            DmgAllocNode.reroll_damages = weapon.options.reroll_damages
+            DmgAllocNode.weapon_d = weapon.d
+            DmgAllocNode.weapon_options_snipe = weapon.options.snipe
+            DmgAllocNode.target_wounds = target.w
+            DmgAllocNode.n_wounds_init = 16
+            DmgAllocNode.n_figs_slained_weighted_ratios = []
+            DmgAllocNode.fnp_fail_ratio = 1 if target.fnp is None else 1 - get_success_ratio(target.fnp)
+            DmgAllocNode.start_target_wounds = target.w
+            DmgAllocNode.roll_damages_twice = weapon.options.roll_damages_twice
+            DmgAllocNode.cache.reset()
+            DmgAllocNode.prob_mortals = 0   # TODO
 
-            slained_figs_percent_per_unsaved_wound = get_slained_figs_percent(State(
-                n_unsaved_wounds_left=State.n_unsaved_wounds_init,
+            DmgAllocNode.unsaved_wound_ratio = get_unsaved_wound_ratio(weapon, target)
+
+            slained_figs_percent_per_wound = get_slained_figs_percent(DmgAllocNode(
+                n_wounds_left=DmgAllocNode.n_wounds_init,
                 current_wound_n_damages_left=0,
+                current_wound_damages_are_mortal=None,
                 n_figs_slained_so_far=0,
-                remaining_target_wounds=target.w)) / State.n_unsaved_wounds_init
+                remaining_target_wounds=target.w)) / DmgAllocNode.n_wounds_init
+
+            slained_figs_percent_per_unsaved_wound = slained_figs_percent_per_wound / DmgAllocNode.unsaved_wound_ratio
 
         Caches.slained_figs_percent_per_unsaved_wound_cache[key] = slained_figs_percent_per_unsaved_wound
 
@@ -813,7 +873,7 @@ def compute_heatmap(profile_a, profile_b):
                 [8]
             ]
     ):
-        fnps = [7] if w > float('inf') else [7, 6, 5]
+        fnps = [7] if w > 5 else [7, 6, 5]  # w>inf: 4 times slower than w>5 TODO: put inf back
 
         if Weapon.at_least_one_blast_weapon:
             if w > 3:

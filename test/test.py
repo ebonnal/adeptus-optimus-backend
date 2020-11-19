@@ -14,7 +14,7 @@ class Test(unittest.TestCase):
         profile_a = Profile([Weapon(hit="2", s="1")], "1")
         profile_b = Profile([Weapon(s="8")], "100")
         # with cache:
-        z_matrix_1 = compute_heatmap(profile_a, profile_b)["z"]
+        z_matrix_1 = with_timer(lambda: compute_heatmap(profile_a, profile_b)["z"])
         self.assertEqual(None, z_matrix_1[-1][-1])
         self.assertEqual(0.97, z_matrix_1[-1][0])
 
@@ -30,7 +30,7 @@ class Test(unittest.TestCase):
         Caches.unsaved_wound_ratios_cache = UnfillableDict()
         Caches.slained_figs_percent_per_unsaved_wound_cache = UnfillableDict()
 
-        z_matrix_2 = compute_heatmap(profile_a, profile_b)["z"]
+        z_matrix_2 = with_timer(lambda: compute_heatmap(profile_a, profile_b)["z"])
         self.assertTrue(
             all([all([e_1 == e_2 for e_1, e_2 in zip(line_1, line_2)]) for line_1, line_2 in zip(z_matrix_1, z_matrix_2)])
         )
@@ -52,7 +52,7 @@ class Test(unittest.TestCase):
         # Damages reroll
         self.assertTrue(
             float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4)),
-                     1 / 100))
+                     1 / 100, verbose=True))
         self.assertTrue(float_eq(
             get_slained_figs_percent_per_unsaved_wound(
                 Weapon(d=DiceExpr(1, 3), options=Options(reroll_damages=True)),
