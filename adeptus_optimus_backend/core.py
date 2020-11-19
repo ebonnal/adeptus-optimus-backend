@@ -364,11 +364,17 @@ def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0, roll_twice=False):
 
 
 def get_n_attacks(weapon, target):
-    assert (isinstance(weapon, Weapon))
-    assert (isinstance(target, Target))
     key = f"{weapon.a},"
     if weapon.options.is_blast and target.n_models > 5:
         key += f"{target.n_models},"
+    return key
+
+
+def get_n_attacks(weapon, target):
+    assert (isinstance(weapon, Weapon))
+    assert (isinstance(target, Target))
+
+    key = get_n_attacks(weapon, target)
 
     n_attacks = Caches.n_attacks_cache.get(key, None)
     if n_attacks is None:
@@ -433,13 +439,17 @@ def _visit_hit_tree(reroll_consumed, dakka3_consumed, necessary_roll, reroll, da
     return successes_ratio
 
 
+def get_hit_ratio_key(weapon):
+    return f"{weapon.hit}," \
+           f"{weapon.options.hit_modifier}," \
+           f"{weapon.options.reroll_hits}," \
+           f"{weapon.options.dakka3}," \
+           f"{weapon.options.auto_hit},"
+
+
 def get_hit_ratio(weapon):
     assert (isinstance(weapon, Weapon))
-    key = f"{weapon.hit}," \
-          f"{weapon.options.hit_modifier}," \
-          f"{weapon.options.reroll_hits}," \
-          f"{weapon.options.dakka3}," \
-          f"{weapon.options.auto_hit},"
+    key = get_hit_ratio_key(weapon)
     hit_ratio = Caches.hit_ratios_cache.get(key, None)
     if hit_ratio is None:
         if weapon.options.auto_hit:
@@ -454,6 +464,19 @@ def get_hit_ratio(weapon):
     return hit_ratio
 
 
+def get_wound_ratio_key(weapon, target):
+    key = f"{weapon.s}," \
+          f"{weapon.options.wound_modifier}," \
+          f"{weapon.options.reroll_wounds}," \
+          f"{weapon.options.wounds_by_2D6}," \
+          f"{target.t},"
+
+    if weapon.options.auto_wounds_on:
+        key += f"{weapon.options.auto_wounds_on},{weapon.hit},{weapon.options.hit_modifier},"
+
+    return key
+
+
 def get_wound_ratio(weapon, target):
     """
     Random strength value is resolved once per weapon:
@@ -463,14 +486,7 @@ def get_wound_ratio(weapon, target):
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
 
-    key = f"{weapon.s}," \
-          f"{weapon.options.wound_modifier}," \
-          f"{weapon.options.reroll_wounds}," \
-          f"{weapon.options.wounds_by_2D6}," \
-          f"{target.t},"
-
-    if weapon.options.auto_wounds_on:
-        key += f"{weapon.options.auto_wounds_on},{weapon.hit},{weapon.options.hit_modifier},"
+    key = get_wound_ratio_key()
 
     wound_ratio = Caches.wound_ratios_cache.get(key, None)
     if wound_ratio is None:
@@ -504,14 +520,18 @@ def get_wound_ratio(weapon, target):
     return wound_ratio
 
 
+def get_unsaved_wound_ratio_key(weapon, target):
+    return f"{weapon.ap}," \
+           f"{target.sv}," \
+           f"{target.invu}," \
+           f"{weapon.options.save_modifier},"
+
+
 def get_unsaved_wound_ratio(weapon, target):
     assert (isinstance(weapon, Weapon))
     assert (isinstance(target, Target))
 
-    key = f"{weapon.ap}," \
-          f"{target.sv}," \
-          f"{target.invu}," \
-          f"{weapon.options.save_modifier},"
+    key = get_unsaved_wound_ratio_key(weapon, target)
 
     unsaved_wound_ratio = Caches.unsaved_wound_ratios_cache.get(key, None)
     if unsaved_wound_ratio is None:
@@ -538,8 +558,8 @@ class Cache:
 
     def add(self, state, cached_unweighted_downstream):
         key = Cache._keyify(state)
-        if self.dict.get(key, (0, 0))[0] < state.n_unsaved_wounds_left:
-            self.dict[key] = (state.n_unsaved_wounds_left, cached_unweighted_downstream)
+        if self.dict.get(key, (0, 0))[0] < state.n_wounds_left:
+            self.dict[key] = (state.n_wounds_left, cached_unweighted_downstream)
 
     def get(self, state):
         res = self.dict.get(Cache._keyify(state), (None, None))
@@ -556,7 +576,7 @@ class Cache:
 
     @staticmethod
     def _keyify(state):
-        return f"{state.current_wound_n_damages_left},{state.remaining_target_wounds},{state.n_unsaved_wounds_left}"
+        return f"{state.current_wound_n_damages_left},{state.remaining_target_wounds},{state.n_wounds_left}"
 
 
 class State:
@@ -568,6 +588,7 @@ class State:
     fnp_fail_ratio = None
     start_target_wounds = None
     roll_damages_twice = None
+    unsaved_wound_ratio = None
     cache = Cache()
 
     def __init__(self,
@@ -576,13 +597,13 @@ class State:
                  n_figs_slained_so_far,  # value field
                  remaining_target_wounds,  # key field
                  ):
-        self.n_unsaved_wounds_left = n_unsaved_wounds_left
+        self.n_wounds_left = n_unsaved_wounds_left
         self.current_wound_n_damages_left = current_wound_n_damages_left
         self.n_figs_slained_so_far = n_figs_slained_so_far
         self.remaining_target_wounds = remaining_target_wounds
 
     def copy(self):
-        return State(self.n_unsaved_wounds_left,
+        return State(self.n_wounds_left,
                      self.current_wound_n_damages_left,
                      self.n_figs_slained_so_far,
                      self.remaining_target_wounds)
@@ -591,7 +612,7 @@ class State:
 def get_slained_figs_percent(state_):
     assert (isinstance(state_, State))
     assert (state_.remaining_target_wounds >= 0)
-    assert (state_.n_unsaved_wounds_left >= 0)
+    assert (state_.n_wounds_left >= 0)
     assert (state_.current_wound_n_damages_left >= 0)
     state = state_.copy()
 
@@ -606,7 +627,7 @@ def get_slained_figs_percent(state_):
 
     last_model_injured_frac = 1 - state.remaining_target_wounds / State.target_wounds
 
-    if state.current_wound_n_damages_left == 0 and state.n_unsaved_wounds_left == 0:
+    if state.current_wound_n_damages_left == 0 and state.n_wounds_left == 0:
         # leaf: no more damages to fnp no more wounds to consume or p(leaf) < threshold
         # portion of the last model injured
         State.cache.add(state, last_model_injured_frac)
@@ -615,12 +636,12 @@ def get_slained_figs_percent(state_):
         # test cache
         # cached_downstream = None
         cached_res_n_unsaved_wounds_left, cached_downstream = State.cache.get(state)
-        if cached_downstream is not None and cached_res_n_unsaved_wounds_left >= state.n_unsaved_wounds_left:
+        if cached_downstream is not None and cached_res_n_unsaved_wounds_left >= state.n_wounds_left:
             # use cached res if deep enough
             return cached_downstream
         else:
             if state.current_wound_n_damages_left == 0:
-                if cached_downstream is None or cached_res_n_unsaved_wounds_left < state.n_unsaved_wounds_left:
+                if cached_downstream is None or cached_res_n_unsaved_wounds_left < state.n_wounds_left:
                     # consume a wound
                     # random doms handling
                     if State.reroll_damages:
@@ -637,7 +658,7 @@ def get_slained_figs_percent(state_):
                     downstream = max([
                         sum([
                             prob_d *
-                            get_slained_figs_percent(State(n_unsaved_wounds_left=state.n_unsaved_wounds_left - 1,
+                            get_slained_figs_percent(State(n_unsaved_wounds_left=state.n_wounds_left - 1,
                                                            current_wound_n_damages_left=d,
                                                            n_figs_slained_so_far=state.n_figs_slained_so_far,
                                                            remaining_target_wounds=state.remaining_target_wounds))
@@ -649,14 +670,14 @@ def get_slained_figs_percent(state_):
                     return downstream
             else:
                 # FNP fail
-                f = get_slained_figs_percent(State(state.n_unsaved_wounds_left,
+                f = get_slained_figs_percent(State(state.n_wounds_left,
                                                    state.current_wound_n_damages_left - 1,
                                                    state.n_figs_slained_so_far,
                                                    state.remaining_target_wounds - 1))
 
                 # FNP success
                 if State.fnp_fail_ratio != 1:
-                    s = get_slained_figs_percent(State(state.n_unsaved_wounds_left,
+                    s = get_slained_figs_percent(State(state.n_wounds_left,
                                                        state.current_wound_n_damages_left - 1,
                                                        state.n_figs_slained_so_far,
                                                        state.remaining_target_wounds))
@@ -667,16 +688,20 @@ def get_slained_figs_percent(state_):
                 return downstream
 
 
+def get_slained_figs_percent_per_unsaved_wound_key(weapon, target):
+    return f"{weapon.d}," \
+           f"{target.fnp}," \
+           f"{target.w}," \
+           f"{weapon.options.reroll_damages}," \
+           f"{weapon.options.roll_damages_twice},"
+
+
 def get_slained_figs_percent_per_unsaved_wound(weapon, target):
     """
     n_unsaved_wounds_init=32: 14 sec, res prec +-0.02 compared to 64
     n_unsaved_wounds_init=10:  5 sec, res prec +-0.1  compared to 64
     """
-    key = f"{weapon.d}," \
-          f"{target.fnp}," \
-          f"{target.w}," \
-          f"{weapon.options.reroll_damages}," \
-          f"{weapon.options.roll_damages_twice},"
+    key = get_slained_figs_percent_per_unsaved_wound_key(weapon, target) + get_unsaved_wound_ratio_key(weapon, target)
 
     slained_figs_percent_per_unsaved_wound = Caches.slained_figs_percent_per_unsaved_wound_cache.get(key, None)
 
@@ -695,6 +720,7 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
             State.fnp_fail_ratio = 1 if target.fnp is None else 1 - get_success_ratio(target.fnp)
             State.start_target_wounds = target.w
             State.roll_damages_twice = weapon.options.roll_damages_twice
+            State.unsaved_wound_ratio = get_unsaved_wound_ratio(weapon, target)
             State.cache.reset()
 
             slained_figs_percent_per_unsaved_wound = get_slained_figs_percent(State(
