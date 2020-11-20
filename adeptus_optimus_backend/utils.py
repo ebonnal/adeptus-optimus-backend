@@ -2,6 +2,7 @@ import re
 
 from time import time, sleep
 
+from math import log
 
 def apply_mask_matrix(matrix, mask_matrix, predicate_on_mask_matrix):
     return [
@@ -13,12 +14,24 @@ def apply_mask_matrix(matrix, mask_matrix, predicate_on_mask_matrix):
     ]
 
 
-def float_eq(a, b, n_same_decimals=8, verbose=False):
-    assert (type(n_same_decimals) is int and type(verbose) is bool)
+def assert_float_eq(a, b, max_ratio=1.0001, verbose=False):
+    res = float_eq(a, b, max_ratio, verbose)
+    if not res:
+        raise AssertionError(f"a={a} too different from b={b}")
+
+def assert_float_neq(a, b, min_ratio=1.00001, verbose=False):
+    res = float_eq(a, b, min_ratio, verbose)
+    if res:
+        raise AssertionError(f"a={a} too close to b={b}")
+
+def float_eq(a, b, ratio, verbose):
+    assert(int(ratio) != ratio)
+    assert(ratio > 1)
     if verbose and is_dev_execution():
-        print(f"a={a}, b={b}")
-        print(f'%.{n_same_decimals}E' % a, f'%.{n_same_decimals}E' % b)
-    return f'%.{n_same_decimals}E' % a == f'%.{n_same_decimals}E' % b
+        print(a, b, max(abs(b/a), abs(a/b)))
+    if a == 0 or b == 0:
+        return a == b
+    return a == b or max(abs(b/a), abs(a/b)) <= ratio
 
 
 _is_dev_execution = False
@@ -83,7 +96,7 @@ class DiceExpr:
             self.min = n
             self.max = n * self.dices_type
 
-    def __str__(self):
+    def __repr__(self):
         if self.dices_type is None:
             return str(self.n)
         else:

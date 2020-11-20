@@ -18,17 +18,7 @@ class Test(unittest.TestCase):
         self.assertEqual(None, z_matrix_1[-1][-1])
         self.assertEqual(0.97, z_matrix_1[-1][0])
 
-        class UnfillableDict(dict):
-            def __setitem__(self, key, value):
-                pass
-
-        Caches.prob_by_roll_result_cache = UnfillableDict()
-        Caches.success_ratios_cache = UnfillableDict()
-        Caches.n_attacks_cache = UnfillableDict()
-        Caches.hit_ratios_cache = UnfillableDict()
-        Caches.wound_ratios_cache = UnfillableDict()
-        Caches.unsaved_wound_ratios_cache = UnfillableDict()
-        Caches.slained_figs_percent_per_unsaved_wound_cache = UnfillableDict()
+        Caches.disable()
 
         z_matrix_2 = with_timer(lambda: compute_heatmap(profile_a, profile_b)["z"])
         self.assertTrue(
@@ -36,65 +26,303 @@ class Test(unittest.TestCase):
                  zip(z_matrix_1, z_matrix_2)])
         )
 
-    def test_doms_alloc(self):
-        # Snipe
-        # self.assertTrue(float_eq(
-        #     get_slained_figs_percent_per_unsaved_wound(
-        #         Weapon(d="1", options=Options(
-        #             snipe={
-        #                 Options.snipe_roll_type: Options.wound,
-        #                 Options.snipe_threshold: 6,
-        #                 Options.snipe_n_mortals: 1
-        #             }
-        #         )),
-        #         Target(w=100)
-        #     ), 0.01, verbose=True
-        # ))
+        Caches.enable()
+
+    def test_snipe(self):
+        # Snipe on strength roll
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", s="2D6", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.strength,
+                        Options.snipe_threshold: 12,
+                        Options.snipe_n_mortals: DiceExpr(2, None)
+                    },
+                    wound_modifier=+1  # make wounding on 3+ but does not impact sniping with prob=1/36
+                )),
+                Target(t=4, w=1000, sv=6)
+            ), (1 + (1 / 36 * 2) / (5 / 6)) / 1000
+        )
+        # SAG case
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", s="2D6", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.strength,
+                        Options.snipe_threshold: 11,
+                        Options.snipe_n_mortals: DiceExpr(1, 3)
+                    },
+                    wound_modifier=+1  # make wounding on 3+ but does not impact sniping with prob=1/36
+                )),
+                Target(t=4, w=1000, sv=6)
+            ), (1 + ((1 + 2) / 36 * (1 + 3) / 2) / (5 / 6)) / 1000
+        )
+
+        # compares with no snipe equivalent without regular damages losses
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", s="2D6", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.strength,
+                        Options.snipe_threshold: 11,
+                        Options.snipe_n_mortals: DiceExpr(12, None)
+                    }
+                )),
+                Target(w=2, sv=6)
+            ),
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="2", ap="1"),
+                Target(w=2, sv=6)
+            )
+        )
+        # with some wounds saved
+        self.assertGreater(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", s="2D6", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.strength,
+                        Options.snipe_threshold: 11,
+                        Options.snipe_n_mortals: DiceExpr(12, None)  # 12* 3/36 = 1 mortal per wound in average
+                    }
+                )),
+                Target(w=2, sv=6)
+            ),
+            1.08 * get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="2"),
+                Target(w=2, sv=6)
+            )
+        )
+        # with 1/4 regular damages lost
+        assert_float_eq(
+            3 / 4 * get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", s="2D6", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.strength,
+                        Options.snipe_threshold: 11,
+                        Options.snipe_n_mortals: DiceExpr(12, None)
+                    }
+                )),
+                Target(w=3, sv=6)
+            ),
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="2", ap="1"),
+                Target(w=3, sv=6)
+            )
+        )
+
+        # Snipe on wound roll
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", s="4", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 5,
+                        Options.snipe_n_mortals: DiceExpr(2, None)
+                    },
+                    wound_modifier=0
+                )),
+                Target(t=4, w=1000, sv=6)
+            ), (1 + ((7 - 5) / (7 - 4) * 2) / (5 / 6)) / 1000
+        )
+        # modifier impacts snipe_threshold
+        self.assertLess(
+            1.1 * get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: DiceExpr(1, None)
+                    },
+                    wound_modifier=+1
+                )),
+                Target(w=100, sv=6)
+            ),
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 5,
+                        Options.snipe_n_mortals: DiceExpr(1, None)
+                    },
+                    wound_modifier=0
+                )),
+                Target(w=100, sv=6)
+            )
+        )
+        # ... if wounds on 2+, then snipe on 5+ and snipe on 6+ with wound modif +1 is the same
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", s="8", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: DiceExpr(1, None)
+                    },
+                    wound_modifier=+1
+                )),
+                Target(w=100, sv=6)
+            ),
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", s="8", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 5,
+                        Options.snipe_n_mortals: DiceExpr(1, None)
+                    },
+                    wound_modifier=0
+                )),
+                Target(w=100, sv=6)
+            )
+        )
+
+        # snipe with random n_mortals equivalent to the flat avg on infinite target wounds
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="3", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: DiceExpr(2, None)
+                    },
+                    wound_modifier=+1
+                )),
+                Target(w=100, sv=6)
+            ),
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="3", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: DiceExpr(1, 3)
+                    },
+                    wound_modifier=+1
+                )),
+                Target(w=100, sv=6)
+            )
+        )
+        # ... on few target max wounds, with d=1
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: DiceExpr(2, None)
+                    },
+                    wound_modifier=+1
+                )),
+                Target(w=2, sv=6)
+            ),
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="1", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: DiceExpr(1, 3)
+                    },
+                    wound_modifier=+1
+                )),
+                Target(w=2, sv=6)
+            )
+        )
+        # ... on few target max wounds, with w%d == 0, D3 is make triggers regular damages losses
+        self.assertGreater(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="2", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: DiceExpr(2, None)
+                    },
+                    wound_modifier=+1
+                )),
+                Target(w=4, sv=6)
+            ),
+            1.05 * get_slained_figs_percent_per_unsaved_wound(
+                Weapon(d="2", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 6,
+                        Options.snipe_n_mortals: DiceExpr(1, 3)
+                    },
+                    wound_modifier=+1
+                )),
+                Target(w=4, sv=6)
+            )
+        )
+        # with wounds on 5+ (s=3, t=4), on w=4 it is equivalent to have d=4 or d=2 and snipe on 5+/2 mortals
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(s="3", d="2", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 5,
+                        Options.snipe_n_mortals: DiceExpr(2, None)
+                    },
+                    wound_modifier=0
+                )),
+                Target(w=4, sv=6)
+            ),
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(s="3", d="4", ap="1"),
+                Target(w=4, sv=6)
+            )
+        )
+        # losing half of the regular damages (d=4 for w=2), while having this half passed as mortals is optimum
+        assert_float_eq(
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(s="3", d="2", ap="1", options=Options(
+                    snipe={
+                        Options.snipe_roll_type: Options.wound,
+                        Options.snipe_threshold: 5,
+                        Options.snipe_n_mortals: DiceExpr(2, None)
+                    },
+                    wound_modifier=0
+                )),
+                Target(w=2, sv=6)
+            ) /
+            get_slained_figs_percent_per_unsaved_wound(
+                Weapon(s="3", d="4", ap="1"),
+                Target(w=2, sv=6)
+            ),
+            2
+        )
 
         # Without snipe on, changing unsaved_wound_ratio does not impact result
-        self.assertEqual(
+        assert_float_eq(
             get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4, sv=2, invu=6)),
             get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4, sv=6))
         )
 
+    def test_doms_alloc(self):
         # Damages reroll
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4)),
-                     1 / 100))
-        self.assertTrue(float_eq(
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4)),
+                        1 / 100)
+        assert_float_eq(
             get_slained_figs_percent_per_unsaved_wound(
                 Weapon(d=DiceExpr(1, 3), options=Options(reroll_damages=True)),
                 Target(w=100, fnp=4)
             ), 0.5 * (1 / 9 + 2 * (1 / 3 + 1 / 9) + 3 * (1 / 3 + 1 / 9)) / 100
-        ))
+        )
         # FNP
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=6)), 5 / 6))
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=5)), 4 / 6))
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=4)), 0.5))
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=6)), 5 / 6)
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=5)), 4 / 6)
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=1, fnp=4)), 0.5)
         # on W=2
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=2, fnp=None)), 0.5))
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(2)), Target(w=2, fnp=None)), 1))
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(2, 3)), Target(w=2, fnp=None)), 1))
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1)), Target(w=2, fnp=None)), 0.5)
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(2)), Target(w=2, fnp=None)), 1)
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(2, 3)), Target(w=2, fnp=None)), 1)
         # random doms
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 6)), Target(w=35, fnp=None)), 0.1,
-                     0))
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(
-            Weapon(d=DiceExpr(1, 6)), Target(w=175, fnp=4)), 0.01, 0)
-        )
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 6)), Target(w=35, fnp=None)),
+                        0.1, 1.05)
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(
+            Weapon(d=DiceExpr(1, 6)), Target(w=175, fnp=4)), 0.01)
 
-        self.assertTrue(float_eq(get_slained_figs_percent_per_unsaved_wound(
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(
             Weapon(d=DiceExpr(1, 6)), Target(w=70, fnp=5)), 2 / 3 * 3.5 / 70)
-        )
+
         # lost damages
-        self.assertTrue(
-            float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(5)), Target(w=6, fnp=None)), 0.5))
+        assert_float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(5)), Target(w=6, fnp=None)), 0.5)
 
         # exact cases
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=3, w=5) == 0.5)
@@ -104,9 +332,10 @@ class Test(unittest.TestCase):
                         get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(3)), Target(w=5, fnp=None)))
         self.assertTrue(exact_avg_figs_fraction_slained_per_unsaved_wound(d=2, w=2) ==
                         get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(2)), Target(w=2, fnp=None)))
-        self.assertTrue(float_eq(
+        assert_float_eq(
             exact_avg_figs_fraction_slained_per_unsaved_wound(d=6, w=16),
-            get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(6)), Target(w=16, fnp=None)), 0))
+            get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(6)), Target(w=16, fnp=None)))
+
         self.assertTrue(get_slained_figs_percent_per_unsaved_wound(
             Weapon("5", "10", "2D6", "1", "1"),
             Target(t=8, sv=6, invu=None, fnp=6, w=1)
@@ -131,102 +360,113 @@ class Test(unittest.TestCase):
                 Weapon(d="D3", options=Options(reroll_damages=True)),
                 Target(w=3))
         )
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_slained_figs_percent_per_unsaved_wound(
                 Weapon(d="D3", options=Options(roll_damages_twice=True)),
                 Target(w=1)),
             get_slained_figs_percent_per_unsaved_wound(
                 Weapon(d="D3", options=Options(reroll_damages=True)),
                 Target(w=1))
-        ))
+        )
 
     def test_compute_successes_ratio(self):
-        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.none), 1 / 6))
-        self.assertTrue(float_eq(get_success_ratio(6, 0, True, Options.none), 1 / 6))
-        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.none), 3 / 6))
-        self.assertTrue(float_eq(get_success_ratio(8, 0, False, Options.none), 0))
+        assert_float_eq(get_success_ratio(8, 0, True, Options.none), 1 / 6)
+        assert_float_eq(get_success_ratio(6, 0, True, Options.none), 1 / 6)
+        assert_float_eq(get_success_ratio(4, 0, True, Options.none), 3 / 6)
+        assert_float_eq(get_success_ratio(8, 0, False, Options.none), 0)
+        assert_float_eq(get_success_ratio(8, 0, True, Options.ones), 1 / 6 + 1 / 6 / 6)
+        assert_float_eq(get_success_ratio(2, 0, True, Options.ones), 5 / 6 + 5 / 6 / 6)
+        assert_float_eq(get_success_ratio(2, 0, True, Options.onestwos),
+                        get_success_ratio(2, 0, True, Options.ones))
+        assert_float_eq(get_success_ratio(8, 0, True, Options.onestwos), 1 / 6 + 2 / 6 / 6)
+        assert_float_eq(get_success_ratio(4, 0, True, Options.onestwos),
+                        1 - (1 / 6 + 2 * 1 / 2 / 6))  # only 3 or reroll 1,2,3 fail
+        assert_float_eq(get_success_ratio(3, 0, True, Options.onestwos),
+                        get_success_ratio(3, 0, True, Options.full))
+        assert_float_eq(get_success_ratio(2, 0, True, Options.full), 1 - 1 / 6 * 1 / 6)
+        assert_float_eq(get_success_ratio(8, 0, True, Options.full), 1 - 5 / 6 * 5 / 6)
+        assert_float_eq(get_success_ratio(8, 0, True, Options.none, 6),
+                        1 / 6 + 1 / 6 / 6)
+        assert_float_eq(get_success_ratio(8, 0, True, Options.onestwos, 5),
+                        1 / 6 +  # direct success
+                        2 / 6 * 1 / 6 +  # reroll -> success
+                        2 / 6 * 1 / 6 +  # dakka3 -> success
+                        2 / 6 * 2 / 6 * 1 / 6 +  # dakka3 -> reroll -> success
+                        2 / 6 * 2 / 6 * 1 / 6 +  # reroll -> dakka3 -> success
+                        2 / 6 * 2 / 6 * 2 / 6 * 1 / 6  # reroll -> dakka3 -> reroll -> success
+                        )
 
-        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.ones), 1 / 6 + 1 / 6 / 6))
-        self.assertTrue(float_eq(get_success_ratio(2, 0, True, Options.ones), 5 / 6 + 5 / 6 / 6))
-        self.assertTrue(float_eq(get_success_ratio(2, 0, True, Options.onestwos),
-                                 get_success_ratio(2, 0, True, Options.ones)))
-        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.onestwos), 1 / 6 + 2 / 6 / 6))
-        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.onestwos),
-                                 1 - (1 / 6 + 2 * 1 / 2 / 6)))  # only 3 or reroll 1,2,3 fail
-        self.assertTrue(float_eq(get_success_ratio(3, 0, True, Options.onestwos),
-                                 get_success_ratio(3, 0, True, Options.full)))
-        self.assertTrue(float_eq(get_success_ratio(2, 0, True, Options.full), 1 - 1 / 6 * 1 / 6))
-        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.full), 1 - 5 / 6 * 5 / 6))
-        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.none, 6),
-                                 1 / 6 + 1 / 6 / 6))
-        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.onestwos, 5),
-                                 1 / 6 +  # direct success
-                                 2 / 6 * 1 / 6 +  # reroll -> success
-                                 2 / 6 * 1 / 6 +  # dakka3 -> success
-                                 2 / 6 * 2 / 6 * 1 / 6 +  # dakka3 -> reroll -> success
-                                 2 / 6 * 2 / 6 * 1 / 6 +  # reroll -> dakka3 -> success
-                                 2 / 6 * 2 / 6 * 2 / 6 * 1 / 6  # reroll -> dakka3 -> reroll -> success
-                                 ))
+        assert_float_eq(get_success_ratio(4, 0, True, Options.onestwos, 5),
+                        3 / 6 +  # direct success
+                        2 / 6 * 3 / 6 +  # dakka3 -> success
+                        2 / 6 * 2 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
+                        2 / 6 * 3 / 6 +  # reroll -> success
+                        2 / 6 * 2 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
+                        2 / 6 * 2 / 6 * 2 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
+                        )
 
-        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.onestwos, 5),
-                                 3 / 6 +  # direct success
-                                 2 / 6 * 3 / 6 +  # dakka3 -> success
-                                 2 / 6 * 2 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
-                                 2 / 6 * 3 / 6 +  # reroll -> success
-                                 2 / 6 * 2 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
-                                 2 / 6 * 2 / 6 * 2 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
-                                 ))
-
-        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.full, 6),
-                                 3 / 6 +  # direct success
-                                 1 / 6 * 3 / 6 +  # dakka3 -> success
-                                 1 / 6 * 3 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
-                                 3 / 6 * 3 / 6 +  # reroll -> success
-                                 3 / 6 * 1 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
-                                 3 / 6 * 1 / 6 * 3 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
-                                 ))
+        assert_float_eq(get_success_ratio(4, 0, True, Options.full, 6),
+                        3 / 6 +  # direct success
+                        1 / 6 * 3 / 6 +  # dakka3 -> success
+                        1 / 6 * 3 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
+                        3 / 6 * 3 / 6 +  # reroll -> success
+                        3 / 6 * 1 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
+                        3 / 6 * 1 / 6 * 3 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
+                        )
         # explodes
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_success_ratio(4, 0, True, explodes=6),
             3 / 6 + 1 / 6
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_success_ratio(4, 0, True, explodes=5),
             3 / 6 + 1 / 6 + 1 / 6
-        ))
+        )
+        # explosion > hit
+        assert_float_eq(
+            get_success_ratio(6, 0, True, explodes=5),
+            1 / 6 + 1 / 6 + 1 / 6
+        )
         # ratio can be > 1
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_success_ratio(2, 0, True, explodes=5),
             5 / 6 + 1 / 6 + 1 / 6
-        ))
+        )
         # modifiers
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_success_ratio(2, -1, True, explodes=5),
             4 / 6 + 1 / 6 + 1 / 6
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_success_ratio(2, -1, True, explodes=5),
             get_success_ratio(4, +1, True, explodes=5)
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_success_ratio(2, +1, True, explodes=5),
             get_success_ratio(2, 0, True, explodes=5)
-        ))
+        )
         # explodes mixed with rerolls and dakka3
-        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.full, 6, 5),
-                                 3 / 6 +  # direct success
-                                 2 / 6 +  # direct success explodes
-                                 1 / 6 * 3 / 6 +  # dakka3 -> success
-                                 1 / 6 * 2 / 6 +  # dakka3 -> success explodes
-                                 1 / 6 * 3 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
-                                 1 / 6 * 3 / 6 * 2 / 6 +  # dakka3 -> reroll -> success explodes
-                                 3 / 6 * 3 / 6 +  # reroll -> success
-                                 3 / 6 * 2 / 6 +  # reroll -> success explodes
-                                 3 / 6 * 1 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
-                                 3 / 6 * 1 / 6 * 2 / 6 +  # reroll -> dakka3 -> success explodes
-                                 3 / 6 * 1 / 6 * 3 / 6 * 3 / 6 +  # reroll -> dakka3 -> reroll -> success
-                                 3 / 6 * 1 / 6 * 3 / 6 * 2 / 6  # reroll -> dakka3 -> reroll -> success explodes
-        ))
+        assert_float_eq(get_success_ratio(4, 0, True, Options.full, 6, 5),
+                        3 / 6 +  # direct success
+                        2 / 6 +  # direct success explodes
+                        1 / 6 * 3 / 6 +  # dakka3 -> success
+                        1 / 6 * 2 / 6 +  # dakka3 -> success explodes
+                        1 / 6 * 3 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
+                        1 / 6 * 3 / 6 * 2 / 6 +  # dakka3 -> reroll -> success explodes
+                        3 / 6 * 3 / 6 +  # reroll -> success
+                        3 / 6 * 2 / 6 +  # reroll -> success explodes
+                        3 / 6 * 1 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
+                        3 / 6 * 1 / 6 * 2 / 6 +  # reroll -> dakka3 -> success explodes
+                        3 / 6 * 1 / 6 * 3 / 6 * 3 / 6 +  # reroll -> dakka3 -> reroll -> success
+                        3 / 6 * 1 / 6 * 3 / 6 * 2 / 6  # reroll -> dakka3 -> reroll -> success explodes
+                        )
+        # assert get_success_ratio equal to corresponding get_hit_ratio
+        assert_float_eq(get_success_ratio(4, 0, True, Options.full, 6, 5),
+                        get_hit_ratio(Weapon(hit="4", options=Options(hit_modifier=0,
+                                                                      reroll_hits=Options.full,
+                                                                      dakka3=6,
+                                                                      hit_explodes=5)))
+                        )
 
     def test_compute_necessary_wound_roll(self):
         self.assertEqual(compute_necessary_wound_roll(1, 4), 6)
@@ -273,8 +513,8 @@ class Test(unittest.TestCase):
         self.assertTrue(score_weapon_on_target(w1, t2, None, None) < 1.1 * score_weapon_on_target(w2, t2, None, None))
         w3, w4 = Weapon("5", "7", "2D6", "1", "1", options=Options.empty()), Weapon("5", "2D6", "2D6", "1", "1",
                                                                                     options=Options.empty())
-        self.assertTrue(
-            float_eq(score_weapon_on_target(w3, t1, None, None), score_weapon_on_target(w4, t1, None, None)))  # options
+        assert_float_eq(score_weapon_on_target(w3, t1, None, None),
+                        score_weapon_on_target(w4, t1, None, None))  # options
         t = Target(t=4, sv=5, invu=None, fnp=6, w=6)
         self.assertTrue(
             score_weapon_on_target(
@@ -339,24 +579,24 @@ class Test(unittest.TestCase):
         )
 
         # Assert DakkaDakkaDakka and 1s reroll is the same
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_hit_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(dakka3=6))),
             get_hit_ratio(
-                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.ones)))))
-        self.assertTrue(float_eq(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.ones))))
+        assert_float_eq(
             get_hit_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(dakka3=6, hit_modifier=1))),
             get_hit_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6",
-                       options=Options(reroll_hits=Options.ones, hit_modifier=1)))))
+                       options=Options(reroll_hits=Options.ones, hit_modifier=1))))
         # Assert 1s and 2s is like full for WSBS=4+ and hit modifier +1
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_hit_ratio(
                 Weapon(hit="3", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.full))),
             get_hit_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6",
-                       options=Options(reroll_hits=Options.full, hit_modifier=+1)))))
+                       options=Options(reroll_hits=Options.full, hit_modifier=+1))))
         # rerolls hierarchie
         self.assertLess(
             1.1 * get_hit_ratio(
@@ -372,31 +612,32 @@ class Test(unittest.TestCase):
                 Weapon(hit="6", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.onestwos))),
             get_hit_ratio(Weapon(hit="6", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.full))))
         # wounds_by_2D6
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_wound_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
                 Target(t=2, sv=6)
             ), 1
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_wound_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
                 Target(t=3, sv=6)
             ), 1 - 1 / 36
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_wound_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
                 Target(t=13, sv=6)
             ), 0
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_wound_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(wounds_by_2D6=True)),
                 Target(t=7, sv=6)
             ), 15 / 36 + 6 / 36
-        ))
-        # autohit on 6+ makes 1/4 of the hits auto wounding if necessary_hit_roll was 3+
+        )
+
+        # autohit on 6+ makes 1/4 of the hits auto wounding if necessary_hit_roll was 3+ ...
         self.assertEqual(
             get_wound_ratio(
                 Weapon(hit="3", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
@@ -405,6 +646,7 @@ class Test(unittest.TestCase):
                 Target(t=4, sv=6)
             ), 1 / 4 + 3 / 4 * 1 / 3
         )
+        # ... or 4+ and +1 wound_modifier (shows that auto_wounds_on considers unmodified hit roll
         self.assertEqual(
             get_wound_ratio(
                 Weapon(hit="4", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
@@ -413,14 +655,35 @@ class Test(unittest.TestCase):
                 Target(t=4, sv=6)
             ), 1 / 4 + 3 / 4 * 1 / 3
         )
+        # hits reroll does not impact auto_wounds_on
         self.assertEqual(
             get_wound_ratio(
-                Weapon(hit="4", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
+                Weapon(hit="3", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=6,
                                                                                reroll_hits=Options.full,
-                                                                               hit_modifier=+1)),
+                                                                               hit_modifier=0)),
                 Target(t=4, sv=6)
             ), 1 / 4 + 3 / 4 * 1 / 3
         )
+        # cannot be greater than 1
+        self.assertEqual(
+            get_wound_ratio(
+                Weapon(hit="6", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=5,
+                                                                               hit_modifier=+1)),
+                Target(t=4, sv=6)
+            ), 1
+        )
+        # test auto_wounds_on part "An unmodified hit roll of _+ **always hits** [...]"
+        self.assertEqual(
+            get_hit_ratio(
+                Weapon(hit="6", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=5))
+            ), 2 / 6
+        )
+        self.assertEqual(
+            get_hit_ratio(
+                Weapon(hit="6", a="1", s="3", ap="D6", d="D6", options=Options(auto_wounds_on=5, hit_modifier=-1))
+            ), 2 / 6
+        )
+
         # auto hit on 6+ makes 100% of the hits auto wounding if necessary_hit_roll was 5+ or 6+
         self.assertEqual(
             get_wound_ratio(
@@ -453,20 +716,20 @@ class Test(unittest.TestCase):
             ), 1
         )
         # unmodified roll of 1 is always a fail for save roll
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=+1)),
                 Target(t=4, sv=3)
             ), 1 / 6
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=+2)),
                 Target(t=4, sv=3)
             ), 1 / 6
-        ))
+        )
         # when not reaching invul, -2 save modifier and -2 AP are equivalent
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=-2)),
                 Target(t=4, sv=3)
@@ -475,7 +738,7 @@ class Test(unittest.TestCase):
                 Weapon(hit="6", a="1", s="3", ap="2", d="D6", options=Options(save_modifier=0)),
                 Target(t=4, sv=3)
             )
-        ))
+        )
         # when reaching Invu, save modifier is better than equivalent AP
         self.assertGreater(
             get_unsaved_wound_ratio(
@@ -567,40 +830,35 @@ class Test(unittest.TestCase):
         self.assertIsNone(parse_roll("7+"))
         self.assertIsNone(parse_roll("3"))
 
-        # assert(float_eq(0.025, 0.0249, 0))  # TODO: make it pass
-
-        self.assertTrue(float_eq(1, 1.01, 1))
-        self.assertTrue(float_eq(0.3333, 0.3334, 2))
-        self.assertTrue(float_eq(0.03333, 0.03334, 2))
-        self.assertTrue(not float_eq(0.3333, 0.334, 2))
-        self.assertTrue(not float_eq(0.03333, 0.0334, 2))
+        assert_float_eq(0.01, 0.011, max_ratio=1.1)
+        assert_float_neq(0.01, 0.012, min_ratio=1.1)
 
         self.assertTrue(get_prob_by_roll_result(parse_dice_expr("D3")) == {1: 1 / 3, 2: 1 / 3, 3: 1 / 3})
         self.assertTrue(get_prob_by_roll_result(parse_dice_expr("7")) == {7: 1})
-        self.assertTrue(float_eq(1, sum(get_prob_by_roll_result(parse_dice_expr("2D6")).values())))
+        assert_float_eq(1, sum(get_prob_by_roll_result(parse_dice_expr("2D6")).values()))
         self.assertTrue(
             get_prob_by_roll_result(parse_dice_expr("2D6")) == {2: 1 / 36, 3: 2 / 36, 4: 3 / 36, 5: 4 / 36, 6: 5 / 36,
                                                                 7: 6 / 36, 8: 5 / 36, 9: 4 / 36, 10: 3 / 36, 11: 2 / 36,
                                                                 12: 1 / 36})
 
         # get_prob_by_roll_result with reroll_if_less_than
-        self.assertTrue(float_eq(
+        assert_float_eq(
             sum(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=7).values()),
             1
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_prob_by_roll_result(parse_dice_expr("3D6", raise_on_failure=True), reroll_if_less_than=4)[3],
             1 / (6 ** 3) ** 2
-        ))
+        )
         # when expected value is in events, reroll if "less" or "less or equal to" it is equivalent
-        self.assertTrue(float_eq(
+        assert_float_eq(
             get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=7)),
             get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("2D6"), reroll_if_less_than=8))
-        ))
-        self.assertTrue(float_eq(
+        )
+        assert_float_eq(
             get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("D3"), reroll_if_less_than=2)),
             get_avg_of_density(get_prob_by_roll_result(parse_dice_expr("D3"), reroll_if_less_than=3))
-        ))
+        )
         # reroll if roll <= expected value is optimum
         for reroll_if_less_than in range(0, 13):
             self.assertLess(

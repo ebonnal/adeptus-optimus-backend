@@ -7,6 +7,7 @@ from .utils import *
 class Options:
     """
     Notes & rules:
+
     - Rerolls apply before modifiers
     - Dakka! Dakka! Dakka: "Each time you roll an unmodified hit roll of 6 for an attack..."
     - Bad moon reroll & dakka3
@@ -69,12 +70,12 @@ class Options:
         reroll_hits_key: "Hits reroll",
         reroll_wounds_key: "Wounds reroll",
         dakka3_key: "An unmodified hit roll of _+ triggers one additional hit roll",
-        auto_wounds_on_key: "An unmodified hit roll of _+ automatically wounds",
+        auto_wounds_on_key: "An unmodified hit roll of _+ always hits and automatically wounds",
         is_blast_key: "Is a blast weapon",
         auto_hit_key: "Automatically hits",
         wounds_by_2D6_key: "Wounds if the result of 2D6 >= target’s Toughness",
         reroll_damages_key: "Damage rolls reroll",
-        roll_damages_twice_key: "Make random damage rolls twice and discard the lowest result",
+        roll_damages_twice_key: "Roll random damages twice and discard the lowest result",
         snipe_key: "For each _ roll of _+ , inflicts _ mortal wound(s)",
         hit_explodes_key: "An unmodified hit roll of _+ scores one additional hit"
     }
@@ -96,6 +97,9 @@ class Options:
         hit_explodes_key: none
     }
 
+    def is_activated(self, option_key):
+        return self.__getattribute__(option_key) != Options.not_activated_value[option_key]
+
     incompatibilities = {
         hit_modifier_key: {},
         wound_modifier_key: {},
@@ -106,8 +110,7 @@ class Options:
         hit_explodes_key: {},
         auto_wounds_on_key: {},
         is_blast_key: {},
-        auto_hit_key: {hit_modifier_key, auto_hit_key, reroll_hits_key, dakka3_key, hit_explodes_key,
-                       auto_wounds_on_key},
+        auto_hit_key: {hit_modifier_key, reroll_hits_key, dakka3_key, hit_explodes_key, auto_wounds_on_key},
         wounds_by_2D6_key: {wound_modifier_key, auto_wounds_on_key, reroll_wounds_key},
         reroll_damages_key: {},
         roll_damages_twice_key: {reroll_damages_key},
@@ -158,17 +161,16 @@ class Options:
         self.reroll_damages = reroll_damages
         self.roll_damages_twice = roll_damages_twice
         self.snipe = snipe  # a part of snipe validation is in Options.parse_snipe and another part in Weapon.__init__
-        require(self.snipe == Options.not_activated_value[Options.snipe_key],
-                f"Option '{Options.opt_key_to_repr[Options.snipe_key]}' is temporarily unavailable")
 
         # Compatibility check:
         for opt_key1, incompatible_opt_keys in Options.incompatibilities.items():
-            if self.__dict__[opt_key1] != Options.not_activated_value[opt_key1]:
+            if self.is_activated(opt_key1):
                 for opt_key2 in Options.opt_key_to_repr.keys():
-                    if opt_key2 != opt_key1 and self.__dict__[opt_key2] != Options.not_activated_value[opt_key2]:
+                    if opt_key2 != opt_key1 and self.is_activated(opt_key2):
                         require(
                             opt_key2 not in incompatible_opt_keys,
-                            f"Options '{Options.opt_key_to_repr[opt_key1]}' and '{Options.opt_key_to_repr[opt_key2]}' are incompatible"
+                            f"Options '{Options.opt_key_to_repr[opt_key1]}' and"
+                            f" '{Options.opt_key_to_repr[opt_key2]}' are incompatible"
                         )
 
     @staticmethod
@@ -265,13 +267,13 @@ class Weapon:
         self.d = parse_dice_expr(d, complexity_threshold=12, raise_on_failure=True)  # exponential exponential compl
         require(self.d.avg != 0, "Damage cannot be 0")
         self.options = Options.parse(options)
-        require(not self.options.is_blast or self.a.dices_type is not None,
+        require(not self.options.is_activated(Options.is_blast_key) or self.a.dices_type is not None,
                 f"Cannot activate '{Options.opt_key_to_repr[Options.is_blast_key]}' "
                 f"option with a non random attack characteristic: {self.a}")
-        require(not self.options.reroll_damages or self.d.dices_type is not None,
+        require(not self.options.is_activated(Options.reroll_damages_key) or self.d.dices_type is not None,
                 f"Cannot activate '{Options.opt_key_to_repr[Options.reroll_damages_key]}' "
                 f"option with a non random Damage characteristic: {self.d}")
-        require(not self.options.roll_damages_twice or self.d.dices_type is not None,
+        require(not self.options.is_activated(Options.roll_damages_twice_key) or self.d.dices_type is not None,
                 f"Cannot activate '{Options.opt_key_to_repr[Options.roll_damages_twice_key]}' "
                 f"option with a non random Damage characteristic: {self.d}")
         self.s = parse_dice_expr(s,
@@ -279,12 +281,13 @@ class Weapon:
                                  raise_on_failure=True,
                                  allow_star=self.options.wounds_by_2D6)  # per each target O(n*dice_type)
         require(
-            self.options.snipe is None or self.options.snipe[Options.snipe_roll_type] != Options.strength or
+            not self.options.is_activated(Options.snipe_key) or self.options.snipe[
+                Options.snipe_roll_type] != Options.strength or
             self.s.dices_type is not None,
             lambda: f"""Cannot activate '{Options.opt_key_to_repr[Options.snipe_key]}': The {self.options.snipe[Options.snipe_roll_type]} roll '{self.s}' is not random."""
         )
         require(
-            self.options.snipe is None or self.options.snipe[Options.snipe_threshold] <=
+            not self.options.is_activated(Options.snipe_key) or self.options.snipe[Options.snipe_threshold] <=
             {Options.strength: self.s.max, Options.wound: 6 + self.options.wound_modifier}[
                 self.options.snipe[Options.snipe_roll_type]],
             lambda: f"""Cannot activate '{Options.opt_key_to_repr[Options.snipe_key]}': A {self.options.snipe[Options.snipe_roll_type]} roll of {self.options.snipe[Options.snipe_threshold]}+ is impossible"""
@@ -317,15 +320,44 @@ class Target:
 
 
 # Function runtime caches:
-class Caches:
-    prob_by_roll_result_cache = {}
-    success_ratios_cache = {}
-    n_attacks_cache = {}
-    hit_ratios_cache = {}
-    wound_ratios_cache = {}
-    unsaved_wound_ratios_cache = {}
-    slained_figs_percent_per_unsaved_wound_cache = {}
+class UnfillableDict(dict):
+    def __setitem__(self, key, value):
+        pass
 
+class Caches:
+
+    prob_by_roll_result_cache = None
+    success_ratios_cache = None
+    n_attacks_cache = None
+    hit_ratios_cache = None
+    wound_ratios_cache = None
+    unsaved_wound_ratios_cache = None
+    slained_figs_percent_per_unsaved_wound_cache = None
+    prob_mortals_after_wound_cache = None
+
+    @staticmethod
+    def enable():
+        Caches.prob_by_roll_result_cache = {}
+        Caches.success_ratios_cache = {}
+        Caches.n_attacks_cache = {}
+        Caches.hit_ratios_cache = {}
+        Caches.wound_ratios_cache = {}
+        Caches.unsaved_wound_ratios_cache = {}
+        Caches.slained_figs_percent_per_unsaved_wound_cache = {}
+        Caches.prob_mortals_after_wound_cache = {}
+
+    @staticmethod
+    def disable():
+        Caches.prob_by_roll_result_cache = UnfillableDict()
+        Caches.success_ratios_cache = UnfillableDict()
+        Caches.n_attacks_cache = UnfillableDict()
+        Caches.hit_ratios_cache = UnfillableDict()
+        Caches.wound_ratios_cache = UnfillableDict()
+        Caches.unsaved_wound_ratios_cache = UnfillableDict()
+        Caches.slained_figs_percent_per_unsaved_wound_cache = UnfillableDict()
+        Caches.prob_mortals_after_wound_cache = UnfillableDict()
+
+Caches.enable()
 
 def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0, roll_twice=False):
     """
@@ -370,7 +402,7 @@ def get_prob_by_roll_result(dice_expr, reroll_if_less_than=0, roll_twice=False):
                         prob_by_roll_result[max(r1, r2)] += prob_r1 * prob_r2
 
         Caches.prob_by_roll_result_cache[key] = prob_by_roll_result
-        assert (float_eq(sum(prob_by_roll_result.values()), 1))
+        assert_float_eq(sum(prob_by_roll_result.values()), 1)
     return prob_by_roll_result
 
 
@@ -404,6 +436,17 @@ def get_n_attacks(weapon, target):
     return n_attacks
 
 
+def apply_roll_border_cases(modified_necessary_roll, auto_success_on_6):
+    if modified_necessary_roll <= 1:
+        modified_necessary_roll = 2  # roll of 1 always fails
+    if modified_necessary_roll >= 7:
+        if auto_success_on_6:
+            modified_necessary_roll = 6  # roll of 6 always succeeds
+        else:
+            modified_necessary_roll = 7
+    return modified_necessary_roll
+
+
 def get_success_ratio(necessary_roll,
                       modifier,
                       auto_success_on_6=True,
@@ -420,12 +463,7 @@ def get_success_ratio(necessary_roll,
     key = f"{necessary_roll},{modifier},{auto_success_on_6},{reroll},{dakka3},{explodes}"
     success_ratio = Caches.success_ratios_cache.get(key, None)
     if success_ratio is None:
-        modified_necessary_roll = necessary_roll - modifier
-        if modified_necessary_roll <= 1:
-            modified_necessary_roll = 2  # roll of 1 always fails
-        if modified_necessary_roll >= 7:
-            if auto_success_on_6:
-                modified_necessary_roll = 6  # roll of 6 always succeeds
+        modified_necessary_roll = apply_roll_border_cases(necessary_roll - modifier, auto_success_on_6)
 
         success_ratio = _visit_rolls_tree(
             reroll_consumed=reroll == Options.none,
@@ -474,7 +512,9 @@ def get_hit_ratio_key(weapon):
            f"{weapon.options.hit_modifier}," \
            f"{weapon.options.reroll_hits}," \
            f"{weapon.options.dakka3}," \
-           f"{weapon.options.auto_hit},"
+           f"{weapon.options.auto_hit}," \
+           f"{weapon.options.hit_explodes}," \
+           f"{weapon.options.auto_wounds_on}"
 
 
 def get_hit_ratio(weapon):
@@ -485,10 +525,19 @@ def get_hit_ratio(weapon):
         if weapon.options.auto_hit:
             hit_ratio = 1
         else:
-            hit_ratio = get_success_ratio(weapon.hit.avg,
-                                          weapon.options.hit_modifier,
+            necessary_roll = weapon.hit.avg
+            modifier = weapon.options.hit_modifier
+            if weapon.options.is_activated(Options.auto_wounds_on_key):
+                if weapon.hit.avg - modifier >= weapon.options.auto_wounds_on:
+                    # always hit on roll >= auto_wounds_on
+                    necessary_roll = weapon.options.auto_wounds_on
+                    modifier = 0
+
+            hit_ratio = get_success_ratio(necessary_roll,
+                                          modifier,
                                           reroll=weapon.options.reroll_hits,
-                                          dakka3=weapon.options.dakka3)
+                                          dakka3=weapon.options.dakka3,
+                                          explodes=weapon.options.hit_explodes)
 
         Caches.hit_ratios_cache[key] = hit_ratio
 
@@ -533,7 +582,7 @@ def get_wound_ratio(weapon, target):
                     weapon.options.wound_modifier,
                     reroll=weapon.options.reroll_wounds
                 )
-                if weapon.options.auto_wounds_on == Options.none:
+                if not weapon.options.is_activated(Options.auto_wounds_on_key):
                     wound_ratio += success_ratio * prob_s_roll
                 else:
                     # modified
@@ -541,9 +590,9 @@ def get_wound_ratio(weapon, target):
                     # unmodified
                     auto_wounds_necessary_hit_roll = weapon.options.auto_wounds_on
                     auto_wounding_hit_rolls_ratio = min(
-                        1,
-                        (7 - auto_wounds_necessary_hit_roll) / (7 - necessary_roll_to_hit)
+                        1, (7 - auto_wounds_necessary_hit_roll) / (7 - necessary_roll_to_hit)
                     )
+
                     wound_ratio += prob_s_roll * \
                                    ((1 - auto_wounding_hit_rolls_ratio) * success_ratio + auto_wounding_hit_rolls_ratio)
 
@@ -579,6 +628,59 @@ def get_unsaved_wound_ratio(weapon, target):
         Caches.unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
 
     return unsaved_wound_ratio
+
+
+def get_prob_snipe_mortals_after_wound_key(weapon, target):
+    if not weapon.options.is_activated(Options.snipe_key):
+        key = ""
+    else:
+        key = f"{weapon.options.snipe},"
+        if weapon.options.snipe[Options.snipe_roll_type] == Options.wound:
+            key += f"{weapon.s},{weapon.options.wound_modifier},{target.t},"
+        else:
+            key += f"{weapon.s},"
+    return key
+
+
+def get_prob_snipe_mortals_after_wound(weapon, target):
+    assert (isinstance(weapon, Weapon))
+    assert (isinstance(target, Target))
+
+    key = get_prob_snipe_mortals_after_wound_key(weapon, target)
+
+    prob_mortals_after_wound = Caches.prob_mortals_after_wound_cache.get(key, None)
+    if prob_mortals_after_wound is None:
+        if not weapon.options.is_activated(Options.snipe_key):
+            prob_mortals_after_wound = 0
+        else:
+            assert (not weapon.options.is_activated(Options.wounds_by_2D6_key))
+            assert (not weapon.options.is_activated(Options.auto_wounds_on_key))
+            if weapon.options.snipe[Options.snipe_roll_type] == Options.wound:
+                prob_mortals_after_wound = 0
+                for s_roll, prob_s_roll in get_prob_by_roll_result(weapon.s).items():
+                    # modified
+                    modified_necessary_roll_to_wound = apply_roll_border_cases(
+                        compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier,
+                        auto_success_on_6=True
+                    )
+                    # modified
+                    snipe_modified_necessary_wound_roll = apply_roll_border_cases(
+                        weapon.options.snipe[Options.snipe_threshold] - weapon.options.wound_modifier,
+                        auto_success_on_6=False  # snipe on 6+ is desactivated by a modifier of -1
+                    )
+                    prob_mortals_after_wound += prob_s_roll * min(
+                        1.0,
+                        (7 - snipe_modified_necessary_wound_roll) / (7 - modified_necessary_roll_to_wound)
+                    )
+            else:
+                prob_mortals_after_wound = 0
+                for s_roll, prob_s_roll in get_prob_by_roll_result(weapon.s).items():
+                    if s_roll >= weapon.options.snipe[Options.snipe_threshold]:
+                        prob_mortals_after_wound += prob_s_roll
+
+        Caches.prob_mortals_after_wound_cache[key] = prob_mortals_after_wound
+
+    return prob_mortals_after_wound
 
 
 class DamagesAllocationCache:
@@ -628,7 +730,7 @@ class DmgAllocNode:
     roll_damages_twice = None
     cache = DamagesAllocationCache()
     unsaved_wound_ratio = None
-    prob_mortals = None
+    prob_mortals_after_wound = None
 
     def __init__(self,
                  n_wounds_left,  # key field, 0 when resolved
@@ -661,14 +763,16 @@ def get_slained_figs_percent(state_):
     # resolve a model kill
     if state.remaining_target_wounds == 0:
         state.remaining_target_wounds = DmgAllocNode.target_wounds
-        # additionnal damages are not propagated to other models
-        state.current_wound_n_damages_left = 0
+        if not state.current_wound_damages_are_mortal:
+            # additionnal damages are not propagated to other models
+            state.current_wound_n_damages_left = 0
+
         downstream = get_slained_figs_percent(state)
         downstream += 1
         return downstream  # upstream propagation of figs slained count
 
-    if state.current_wound_n_damages_left == 0 and state.n_wounds_left == 0:
-        # leaf: no more damages to fnp no more wounds to consume or p(leaf) < threshold
+    if state.current_wound_n_damages_left == 0 and state.n_wounds_left == 0 and state.current_wound_damages_are_mortal in {None, True}:
+        # leaf: no more damages to fnp no more wounds to consume or p(leaf) < threshold, no more potential mortals
         # portion of the last model injured
 
         last_model_injured_frac = 1 - state.remaining_target_wounds / DmgAllocNode.target_wounds
@@ -684,8 +788,8 @@ def get_slained_figs_percent(state_):
         else:
             if state.current_wound_n_damages_left == 0:
                 if cached_downstream is None or cached_res_n_wounds_left < state.n_wounds_left:
-                    # consume a wound
                     if state.current_wound_damages_are_mortal is None or state.current_wound_damages_are_mortal:
+                        # consume a wound
                         # no mortals triggered after last wound consumption or just finished to alloc them
 
                         if DmgAllocNode.reroll_damages:
@@ -703,9 +807,11 @@ def get_slained_figs_percent(state_):
                         downstream_saved_wound = get_slained_figs_percent(
                             DmgAllocNode(n_wounds_left=state.n_wounds_left - 1,
                                          current_wound_n_damages_left=state.current_wound_n_damages_left,
-                                         current_wound_damages_are_mortal=state.current_wound_damages_are_mortal,
+                                         # triggers attempt for mortals after consuming this saved wound
+                                         current_wound_damages_are_mortal=False,
                                          n_figs_slained_so_far=state.n_figs_slained_so_far,
                                          remaining_target_wounds=state.remaining_target_wounds))
+
                         downstream_unsaved_wound = max([
                             sum([
                                 prob_d *
@@ -725,32 +831,34 @@ def get_slained_figs_percent(state_):
                         downstream_no_mortals = get_slained_figs_percent(
                             DmgAllocNode(n_wounds_left=state.n_wounds_left,
                                          current_wound_n_damages_left=state.current_wound_n_damages_left,
+                                         # signals to next node that a new wound has to be consumed
                                          current_wound_damages_are_mortal=None,
                                          n_figs_slained_so_far=state.n_figs_slained_so_far,
                                          remaining_target_wounds=state.remaining_target_wounds))
                         if DmgAllocNode.weapon_options_snipe != Options.none:
-
                             prob_by_roll_result = \
                                 get_prob_by_roll_result(DmgAllocNode.weapon_options_snipe[Options.snipe_n_mortals])
                             downstream_with_mortals = sum([
-                                prob_d *
+                                prob_n_mortals *
                                 get_slained_figs_percent(
                                     DmgAllocNode(n_wounds_left=state.n_wounds_left,
-                                                 current_wound_n_damages_left=d,
+                                                 current_wound_n_damages_left=n_mortals,
                                                  current_wound_damages_are_mortal=True,
                                                  n_figs_slained_so_far=state.n_figs_slained_so_far,
                                                  remaining_target_wounds=state.remaining_target_wounds))
-                                for d, prob_d in prob_by_roll_result.items()
+                                for n_mortals, prob_n_mortals in prob_by_roll_result.items()
                             ])
 
-                            downstream = DmgAllocNode.prob_mortals * downstream_with_mortals + \
-                                         (1 - DmgAllocNode.prob_mortals) * downstream_no_mortals
+                            downstream = DmgAllocNode.prob_mortals_after_wound * downstream_with_mortals + \
+                                         (1 - DmgAllocNode.prob_mortals_after_wound) * downstream_no_mortals
                         else:
                             downstream = downstream_no_mortals
 
                     DmgAllocNode.cache.add(state, downstream)
                     return downstream
             else:
+                # consume damage
+
                 # FNP fail
                 f = get_slained_figs_percent(
                     DmgAllocNode(n_wounds_left=state.n_wounds_left,
@@ -780,8 +888,9 @@ def get_slained_figs_percent_per_unsaved_wound_key(weapon, target):
           f"{target.w}," \
           f"{weapon.options.reroll_damages}," \
           f"{weapon.options.roll_damages_twice},"
-    if weapon.options.snipe != Options.not_activated_value[Options.snipe_key]:
+    if weapon.options.is_activated(Options.snipe_key):
         key += f"{weapon.options.snipe}" + get_unsaved_wound_ratio_key(weapon, target)
+    key += get_prob_snipe_mortals_after_wound_key(weapon, target)
     return key
 
 
@@ -793,12 +902,13 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
 
     key = get_slained_figs_percent_per_unsaved_wound_key(weapon, target)
 
+
     slained_figs_percent_per_unsaved_wound = Caches.slained_figs_percent_per_unsaved_wound_cache.get(key, None)
 
     if slained_figs_percent_per_unsaved_wound is None:
         assert (isinstance(weapon, Weapon))
         assert (isinstance(target, Target))
-        if weapon.d.dices_type is None and target.fnp is None:
+        if weapon.d.dices_type is None and target.fnp is None and not weapon.options.is_activated(Options.snipe_key):
             slained_figs_percent_per_unsaved_wound = exact_avg_figs_fraction_slained_per_unsaved_wound(d=weapon.d.n,
                                                                                                        w=target.w)
         else:
@@ -812,9 +922,12 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
             DmgAllocNode.start_target_wounds = target.w
             DmgAllocNode.roll_damages_twice = weapon.options.roll_damages_twice
             DmgAllocNode.cache.reset()
-            DmgAllocNode.prob_mortals = 0  # TODO
+            DmgAllocNode.prob_mortals_after_wound = get_prob_snipe_mortals_after_wound(weapon, target)
 
-            DmgAllocNode.unsaved_wound_ratio = get_unsaved_wound_ratio(weapon, target)
+            if weapon.options.is_activated(Options.snipe_key):
+                DmgAllocNode.unsaved_wound_ratio = get_unsaved_wound_ratio(weapon, target)
+            else:
+                DmgAllocNode.unsaved_wound_ratio = 1
 
             slained_figs_percent_per_wound = get_slained_figs_percent(DmgAllocNode(
                 n_wounds_left=DmgAllocNode.n_wounds_init,
@@ -1008,5 +1121,6 @@ def compute_heatmap(profile_a, profile_b):
         print(f"\tsize of unsaved_wound_ratios_cache={len(Caches.unsaved_wound_ratios_cache)}")
         print(f"\tsize of slained_figs_percent_per_unsaved_wound_cache="
               f"{len(Caches.slained_figs_percent_per_unsaved_wound_cache)}")
+        print(f"\tsize of prob_mortals_after_wound_cache={len(Caches.prob_mortals_after_wound_cache)}")
 
     return res
