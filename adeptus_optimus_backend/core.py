@@ -60,6 +60,7 @@ class Options:
     reroll_damages_key = "reroll_damages"
     roll_damages_twice_key = "roll_damages_twice"
     snipe_key = "snipe"
+    hit_explodes_key = "hit_explodes"
 
     opt_key_to_repr = {
         hit_modifier_key: "Hit roll modifier",
@@ -74,7 +75,8 @@ class Options:
         wounds_by_2D6_key: "Wounds if the result of 2D6 >= target’s Toughness",
         reroll_damages_key: "Damage rolls reroll",
         roll_damages_twice_key: "Make random damage rolls twice and discard the lowest result",
-        snipe_key: "For each _ roll of _+ , inflicts _ mortal wound(s)"
+        snipe_key: "For each _ roll of _+ , inflicts _ mortal wound(s)",
+        hit_explodes_key: "An unmodified hit roll of _+ scores one additional hit"
     }
 
     not_activated_value = {
@@ -90,7 +92,8 @@ class Options:
         wounds_by_2D6_key: False,
         reroll_damages_key: False,
         roll_damages_twice_key: False,
-        snipe_key: none
+        snipe_key: none,
+        hit_explodes_key: none
     }
 
     incompatibilities = {
@@ -100,9 +103,10 @@ class Options:
         reroll_hits_key: {},
         reroll_wounds_key: {},
         dakka3_key: {},
+        hit_explodes_key: {},
         auto_wounds_on_key: {},
         is_blast_key: {},
-        auto_hit_key: {hit_modifier_key, auto_hit_key, reroll_hits_key, dakka3_key, auto_wounds_on_key},
+        auto_hit_key: {hit_modifier_key, auto_hit_key, reroll_hits_key, dakka3_key, hit_explodes_key, auto_wounds_on_key},
         wounds_by_2D6_key: {wound_modifier_key, auto_wounds_on_key, reroll_wounds_key},
         reroll_damages_key: {},
         roll_damages_twice_key: {reroll_damages_key},
@@ -116,6 +120,7 @@ class Options:
                  reroll_hits=None,
                  reroll_wounds=None,
                  dakka3=None,
+                 hit_explodes=None,
                  auto_wounds_on=None,
                  is_blast=False,
                  auto_hit=False,
@@ -130,6 +135,7 @@ class Options:
         assert (reroll_hits in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (reroll_wounds in {Options.none, Options.ones, Options.onestwos, Options.full})
         assert (dakka3 in {Options.none, 5, 6})
+        assert (hit_explodes in {Options.none, 5, 6})
         assert (auto_wounds_on in {Options.none, 5, 6})
         assert (type(is_blast) is bool)
         assert (type(auto_hit) is bool)
@@ -143,6 +149,7 @@ class Options:
         self.reroll_hits = reroll_hits
         self.reroll_wounds = reroll_wounds
         self.dakka3 = dakka3
+        self.hit_explodes = hit_explodes
         self.auto_wounds_on = auto_wounds_on
         self.is_blast = is_blast
         self.auto_hit = auto_hit
@@ -186,6 +193,8 @@ class Options:
                 options[Options.reroll_wounds_key] if len(options[Options.reroll_wounds_key]) else Options.none,
                 dakka3=
                 int(options[Options.dakka3_key]) if len(options[Options.dakka3_key]) else Options.none,
+                hit_explodes=
+                int(options[Options.hit_explodes_key]) if len(options[Options.hit_explodes_key]) else Options.none,
                 auto_wounds_on=
                 int(options[Options.auto_wounds_on_key]) if len(options[Options.auto_wounds_on_key]) else Options.none,
                 is_blast=bool(options[Options.is_blast_key]) if len(options[Options.is_blast_key]) else False,
