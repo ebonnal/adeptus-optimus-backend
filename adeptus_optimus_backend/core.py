@@ -106,7 +106,8 @@ class Options:
         hit_explodes_key: {},
         auto_wounds_on_key: {},
         is_blast_key: {},
-        auto_hit_key: {hit_modifier_key, auto_hit_key, reroll_hits_key, dakka3_key, hit_explodes_key, auto_wounds_on_key},
+        auto_hit_key: {hit_modifier_key, auto_hit_key, reroll_hits_key, dakka3_key, hit_explodes_key,
+                       auto_wounds_on_key},
         wounds_by_2D6_key: {wound_modifier_key, auto_wounds_on_key, reroll_wounds_key},
         reroll_damages_key: {},
         roll_damages_twice_key: {reroll_damages_key},
@@ -445,22 +446,26 @@ def _visit_rolls_tree(reroll_consumed, dakka3_consumed, modified_necessary_roll,
     # unmodified dice roll possible events: 1, 2, 3, 4, 5, 6
     for i in range(1, 7):
         # explodes
-        if explodes != Options.none and explodes >= i:
-            successes_ratio += 1/6
+        if explodes != Options.none and i >= explodes:
+            successes_ratio += 1 / 6
         # succeeds or reroll
         if i >= modified_necessary_roll:
             successes_ratio += 1 / 6
         elif not reroll_consumed and reroll != Options.none:
             if reroll == Options.ones and i == 1:
-                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3, explodes)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll,
+                                                             dakka3, explodes)
             elif reroll == Options.onestwos and i <= 2:
-                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3, explodes)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll,
+                                                             dakka3, explodes)
             elif reroll == Options.full:
-                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3, explodes)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll,
+                                                             dakka3, explodes)
         # dakka3
         if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
             # dakka result in a new dice roll that may be rerolled
-            successes_ratio += 1 / 6 * _visit_rolls_tree(reroll == Options.none, True, modified_necessary_roll, reroll, dakka3, explodes)
+            successes_ratio += 1 / 6 * _visit_rolls_tree(reroll == Options.none, True, modified_necessary_roll, reroll,
+                                                         dakka3, explodes)
     return successes_ratio
 
 
@@ -692,7 +697,8 @@ def get_slained_figs_percent(state_):
                             ]
                         else:
                             prob_by_roll_result_list = \
-                                [get_prob_by_roll_result(DmgAllocNode.weapon_d, roll_twice=DmgAllocNode.roll_damages_twice)]
+                                [get_prob_by_roll_result(DmgAllocNode.weapon_d,
+                                                         roll_twice=DmgAllocNode.roll_damages_twice)]
 
                         downstream_saved_wound = get_slained_figs_percent(
                             DmgAllocNode(n_wounds_left=state.n_wounds_left - 1,
@@ -713,7 +719,7 @@ def get_slained_figs_percent(state_):
                             ])
                             for prob_by_roll_result in prob_by_roll_result_list])
                         downstream = DmgAllocNode.unsaved_wound_ratio * downstream_unsaved_wound + \
-                            (1 - DmgAllocNode.unsaved_wound_ratio) * downstream_saved_wound
+                                     (1 - DmgAllocNode.unsaved_wound_ratio) * downstream_saved_wound
                     else:
                         # potential mortal: it does never consume a wound
                         downstream_no_mortals = get_slained_figs_percent(
@@ -727,15 +733,15 @@ def get_slained_figs_percent(state_):
                             prob_by_roll_result = \
                                 get_prob_by_roll_result(DmgAllocNode.weapon_options_snipe[Options.snipe_n_mortals])
                             downstream_with_mortals = sum([
-                                    prob_d *
-                                    get_slained_figs_percent(
-                                        DmgAllocNode(n_wounds_left=state.n_wounds_left,
-                                                     current_wound_n_damages_left=d,
-                                                     current_wound_damages_are_mortal=True,
-                                                     n_figs_slained_so_far=state.n_figs_slained_so_far,
-                                                     remaining_target_wounds=state.remaining_target_wounds))
-                                    for d, prob_d in prob_by_roll_result.items()
-                                ])
+                                prob_d *
+                                get_slained_figs_percent(
+                                    DmgAllocNode(n_wounds_left=state.n_wounds_left,
+                                                 current_wound_n_damages_left=d,
+                                                 current_wound_damages_are_mortal=True,
+                                                 n_figs_slained_so_far=state.n_figs_slained_so_far,
+                                                 remaining_target_wounds=state.remaining_target_wounds))
+                                for d, prob_d in prob_by_roll_result.items()
+                            ])
 
                             downstream = DmgAllocNode.prob_mortals * downstream_with_mortals + \
                                          (1 - DmgAllocNode.prob_mortals) * downstream_no_mortals
@@ -770,13 +776,14 @@ def get_slained_figs_percent(state_):
 
 def get_slained_figs_percent_per_unsaved_wound_key(weapon, target):
     key = f"{weapon.d}," \
-           f"{target.fnp}," \
-           f"{target.w}," \
-           f"{weapon.options.reroll_damages}," \
-           f"{weapon.options.roll_damages_twice},"
+          f"{target.fnp}," \
+          f"{target.w}," \
+          f"{weapon.options.reroll_damages}," \
+          f"{weapon.options.roll_damages_twice},"
     if weapon.options.snipe != Options.not_activated_value[Options.snipe_key]:
         key += f"{weapon.options.snipe}" + get_unsaved_wound_ratio_key(weapon, target)
     return key
+
 
 def get_slained_figs_percent_per_unsaved_wound(weapon, target):
     """
@@ -805,7 +812,7 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
             DmgAllocNode.start_target_wounds = target.w
             DmgAllocNode.roll_damages_twice = weapon.options.roll_damages_twice
             DmgAllocNode.cache.reset()
-            DmgAllocNode.prob_mortals = 0   # TODO
+            DmgAllocNode.prob_mortals = 0  # TODO
 
             DmgAllocNode.unsaved_wound_ratio = get_unsaved_wound_ratio(weapon, target)
 

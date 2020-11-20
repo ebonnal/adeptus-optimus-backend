@@ -185,6 +185,48 @@ class Test(unittest.TestCase):
                                  3 / 6 * 1 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
                                  3 / 6 * 1 / 6 * 3 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
                                  ))
+        # explodes
+        self.assertTrue(float_eq(
+            get_success_ratio(4, 0, True, explodes=6),
+            3 / 6 + 1 / 6
+        ))
+        self.assertTrue(float_eq(
+            get_success_ratio(4, 0, True, explodes=5),
+            3 / 6 + 1 / 6 + 1 / 6
+        ))
+        # ratio can be > 1
+        self.assertTrue(float_eq(
+            get_success_ratio(2, 0, True, explodes=5),
+            5 / 6 + 1 / 6 + 1 / 6
+        ))
+        # modifiers
+        self.assertTrue(float_eq(
+            get_success_ratio(2, -1, True, explodes=5),
+            4 / 6 + 1 / 6 + 1 / 6
+        ))
+        self.assertTrue(float_eq(
+            get_success_ratio(2, -1, True, explodes=5),
+            get_success_ratio(4, +1, True, explodes=5)
+        ))
+        self.assertTrue(float_eq(
+            get_success_ratio(2, +1, True, explodes=5),
+            get_success_ratio(2, 0, True, explodes=5)
+        ))
+        # explodes mixed with rerolls and dakka3
+        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.full, 6, 5),
+                                 3 / 6 +  # direct success
+                                 2 / 6 +  # direct success explodes
+                                 1 / 6 * 3 / 6 +  # dakka3 -> success
+                                 1 / 6 * 2 / 6 +  # dakka3 -> success explodes
+                                 1 / 6 * 3 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
+                                 1 / 6 * 3 / 6 * 2 / 6 +  # dakka3 -> reroll -> success explodes
+                                 3 / 6 * 3 / 6 +  # reroll -> success
+                                 3 / 6 * 2 / 6 +  # reroll -> success explodes
+                                 3 / 6 * 1 / 6 * 3 / 6 +  # reroll -> dakka3 -> success
+                                 3 / 6 * 1 / 6 * 2 / 6 +  # reroll -> dakka3 -> success explodes
+                                 3 / 6 * 1 / 6 * 3 / 6 * 3 / 6 +  # reroll -> dakka3 -> reroll -> success
+                                 3 / 6 * 1 / 6 * 3 / 6 * 2 / 6  # reroll -> dakka3 -> reroll -> success explodes
+        ))
 
     def test_compute_necessary_wound_roll(self):
         self.assertEqual(compute_necessary_wound_roll(1, 4), 6)
