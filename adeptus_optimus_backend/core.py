@@ -8,6 +8,7 @@ class Options:
     """
     Notes & rules:
     - Rerolls apply before modifiers
+    - Dakka! Dakka! Dakka: "Each time you roll an unmodified hit roll of 6 for an attack..."
     - Bad moon reroll & dakka3
       Also goes the other way. So if you roll a 1 then reroll to a 6,
       you score a hit plus you get to make an extra hit roll
@@ -66,7 +67,7 @@ class Options:
         save_modifier_key: "Save roll modifier",
         reroll_hits_key: "Hits reroll",
         reroll_wounds_key: "Wounds reroll",
-        dakka3_key: "Dakka Dakka Dakka on _+",
+        dakka3_key: "An unmodified hit roll of _+ triggers one additional hit roll",
         auto_wounds_on_key: "An unmodified hit roll of _+ automatically wounds",
         is_blast_key: "Is a blast weapon",
         auto_hit_key: "Automatically hits",
@@ -393,25 +394,32 @@ def get_n_attacks(weapon, target):
     return n_attacks
 
 
-def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Options.none, dakka3=Options.none):
+def get_success_ratio(necessary_roll,
+                      modifier,
+                      auto_success_on_6=True,
+                      reroll=Options.none,
+                      dakka3=Options.none
+                      ):
+    """
+    reroll and dakka3 are applied regarding unmodified rolls.
+    """
     assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.full})
     assert (dakka3 in {Options.none, 5, 6})
-    key = f"{modified_necessary_roll},{auto_success_on_6},{reroll},{dakka3},"
+    assert (type(modifier) is int)
+    key = f"{necessary_roll},{modifier},{auto_success_on_6},{reroll},{dakka3},"
     success_ratio = Caches.success_ratios_cache.get(key, None)
     if success_ratio is None:
-        necessary_roll = modified_necessary_roll
+        modified_necessary_roll = necessary_roll - modifier
         if modified_necessary_roll <= 1:
-            necessary_roll = 2  # roll of 1 always fails
+            modified_necessary_roll = 2  # roll of 1 always fails
         if modified_necessary_roll >= 7:
             if auto_success_on_6:
-                necessary_roll = 6  # roll of 6 always succeeds
-            else:
-                return 0
+                modified_necessary_roll = 6  # roll of 6 always succeeds
 
-        success_ratio = _visit_hit_tree(
+        success_ratio = _visit_rolls_tree(
             reroll_consumed=reroll == Options.none,
             dakka3_consumed=dakka3 == Options.none,
-            necessary_roll=necessary_roll,
+            modified_necessary_roll=modified_necessary_roll,
             reroll=reroll,
             dakka3=dakka3
         )
@@ -421,21 +429,21 @@ def get_success_ratio(modified_necessary_roll, auto_success_on_6=True, reroll=Op
     return success_ratio
 
 
-def _visit_hit_tree(reroll_consumed, dakka3_consumed, necessary_roll, reroll, dakka3):
+def _visit_rolls_tree(reroll_consumed, dakka3_consumed, modified_necessary_roll, reroll, dakka3):
     successes_ratio = 0
     for i in range(1, 7):
-        if i >= necessary_roll:
+        if i >= modified_necessary_roll:
             successes_ratio += 1 / 6
         elif not reroll_consumed and reroll != Options.none:
             if reroll == Options.ones and i == 1:
-                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3)
             elif reroll == Options.onestwos and i <= 2:
-                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3)
             elif reroll == Options.full:
-                successes_ratio += 1 / 6 * _visit_hit_tree(True, dakka3_consumed, necessary_roll, reroll, dakka3)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3)
         if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
             # dakka result in a new dice roll that may be rerolled
-            successes_ratio += 1 / 6 * _visit_hit_tree(reroll == Options.none, True, necessary_roll, reroll, dakka3)
+            successes_ratio += 1 / 6 * _visit_rolls_tree(reroll == Options.none, True, modified_necessary_roll, reroll, dakka3)
     return successes_ratio
 
 
@@ -455,7 +463,8 @@ def get_hit_ratio(weapon):
         if weapon.options.auto_hit:
             hit_ratio = 1
         else:
-            hit_ratio = get_success_ratio(weapon.hit.avg - weapon.options.hit_modifier,
+            hit_ratio = get_success_ratio(weapon.hit.avg,
+                                          weapon.options.hit_modifier,
                                           reroll=weapon.options.reroll_hits,
                                           dakka3=weapon.options.dakka3)
 
@@ -498,7 +507,8 @@ def get_wound_ratio(weapon, target):
         else:
             for s_roll, prob_s_roll in get_prob_by_roll_result(weapon.s).items():
                 success_ratio = get_success_ratio(
-                    compute_necessary_wound_roll(s_roll, target.t) - weapon.options.wound_modifier,
+                    compute_necessary_wound_roll(s_roll, target.t),
+                    weapon.options.wound_modifier,
                     reroll=weapon.options.reroll_wounds
                 )
                 if weapon.options.auto_wounds_on == Options.none:
@@ -540,7 +550,9 @@ def get_unsaved_wound_ratio(weapon, target):
             save_roll = target.sv + ap_roll
             if target.invu is not None:
                 save_roll = min(save_roll, target.invu)
-            save_fail_ratio = 1 - get_success_ratio(save_roll - weapon.options.save_modifier, auto_success_on_6=False)
+            save_fail_ratio = 1 - get_success_ratio(save_roll,
+                                                    weapon.options.save_modifier,
+                                                    auto_success_on_6=False)
             unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
         Caches.unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
 
@@ -772,7 +784,7 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
             DmgAllocNode.target_wounds = target.w
             DmgAllocNode.n_wounds_init = 16
             DmgAllocNode.n_figs_slained_weighted_ratios = []
-            DmgAllocNode.fnp_fail_ratio = 1 if target.fnp is None else 1 - get_success_ratio(target.fnp)
+            DmgAllocNode.fnp_fail_ratio = 1 if target.fnp is None else 1 - get_success_ratio(target.fnp, modifier=0)
             DmgAllocNode.start_target_wounds = target.w
             DmgAllocNode.roll_damages_twice = weapon.options.roll_damages_twice
             DmgAllocNode.cache.reset()

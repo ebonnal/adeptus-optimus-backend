@@ -52,7 +52,7 @@ class Test(unittest.TestCase):
         # Damages reroll
         self.assertTrue(
             float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4)),
-                     1 / 100, verbose=True))
+                     1 / 100))
         self.assertTrue(float_eq(
             get_slained_figs_percent_per_unsaved_wound(
                 Weapon(d=DiceExpr(1, 3), options=Options(reroll_damages=True)),
@@ -133,25 +133,25 @@ class Test(unittest.TestCase):
         ))
 
     def test_compute_successes_ratio(self):
-        self.assertTrue(float_eq(get_success_ratio(8, True, Options.none), 1 / 6))
-        self.assertTrue(float_eq(get_success_ratio(6, True, Options.none), 1 / 6))
-        self.assertTrue(float_eq(get_success_ratio(4, True, Options.none), 3 / 6))
-        self.assertTrue(float_eq(get_success_ratio(8, False, Options.none), 0))
+        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.none), 1 / 6))
+        self.assertTrue(float_eq(get_success_ratio(6, 0, True, Options.none), 1 / 6))
+        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.none), 3 / 6))
+        self.assertTrue(float_eq(get_success_ratio(8, 0, False, Options.none), 0))
 
-        self.assertTrue(float_eq(get_success_ratio(8, True, Options.ones), 1 / 6 + 1 / 6 / 6))
-        self.assertTrue(float_eq(get_success_ratio(2, True, Options.ones), 5 / 6 + 5 / 6 / 6))
-        self.assertTrue(float_eq(get_success_ratio(2, True, Options.onestwos),
-                                 get_success_ratio(2, True, Options.ones)))
-        self.assertTrue(float_eq(get_success_ratio(8, True, Options.onestwos), 1 / 6 + 2 / 6 / 6))
-        self.assertTrue(float_eq(get_success_ratio(4, True, Options.onestwos),
+        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.ones), 1 / 6 + 1 / 6 / 6))
+        self.assertTrue(float_eq(get_success_ratio(2, 0, True, Options.ones), 5 / 6 + 5 / 6 / 6))
+        self.assertTrue(float_eq(get_success_ratio(2, 0, True, Options.onestwos),
+                                 get_success_ratio(2, 0, True, Options.ones)))
+        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.onestwos), 1 / 6 + 2 / 6 / 6))
+        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.onestwos),
                                  1 - (1 / 6 + 2 * 1 / 2 / 6)))  # only 3 or reroll 1,2,3 fail
-        self.assertTrue(float_eq(get_success_ratio(3, True, Options.onestwos),
-                                 get_success_ratio(3, True, Options.full)))
-        self.assertTrue(float_eq(get_success_ratio(2, True, Options.full), 1 - 1 / 6 * 1 / 6))
-        self.assertTrue(float_eq(get_success_ratio(8, True, Options.full), 1 - 5 / 6 * 5 / 6))
-        self.assertTrue(float_eq(get_success_ratio(8, True, Options.none, 6),
+        self.assertTrue(float_eq(get_success_ratio(3, 0, True, Options.onestwos),
+                                 get_success_ratio(3, 0, True, Options.full)))
+        self.assertTrue(float_eq(get_success_ratio(2, 0, True, Options.full), 1 - 1 / 6 * 1 / 6))
+        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.full), 1 - 5 / 6 * 5 / 6))
+        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.none, 6),
                                  1 / 6 + 1 / 6 / 6))
-        self.assertTrue(float_eq(get_success_ratio(8, True, Options.onestwos, 5),
+        self.assertTrue(float_eq(get_success_ratio(8, 0, True, Options.onestwos, 5),
                                  1 / 6 +  # direct success
                                  2 / 6 * 1 / 6 +  # reroll -> success
                                  2 / 6 * 1 / 6 +  # dakka3 -> success
@@ -160,7 +160,7 @@ class Test(unittest.TestCase):
                                  2 / 6 * 2 / 6 * 2 / 6 * 1 / 6  # reroll -> dakka3 -> reroll -> success
                                  ))
 
-        self.assertTrue(float_eq(get_success_ratio(4, True, Options.onestwos, 5),
+        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.onestwos, 5),
                                  3 / 6 +  # direct success
                                  2 / 6 * 3 / 6 +  # dakka3 -> success
                                  2 / 6 * 2 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
@@ -169,7 +169,7 @@ class Test(unittest.TestCase):
                                  2 / 6 * 2 / 6 * 2 / 6 * 3 / 6  # reroll -> dakka3 -> reroll -> success
                                  ))
 
-        self.assertTrue(float_eq(get_success_ratio(4, True, Options.full, 6),
+        self.assertTrue(float_eq(get_success_ratio(4, 0, True, Options.full, 6),
                                  3 / 6 +  # direct success
                                  1 / 6 * 3 / 6 +  # dakka3 -> success
                                  1 / 6 * 3 / 6 * 3 / 6 +  # dakka3 -> reroll -> success
@@ -293,6 +293,11 @@ class Test(unittest.TestCase):
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(dakka3=6))),
             get_hit_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.ones)))))
+        self.assertTrue(float_eq(
+            get_hit_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(dakka3=6, hit_modifier=1))),
+            get_hit_ratio(
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.ones, hit_modifier=1)))))
         # Assert 1s and 2s is like full for WSBS=4+ and hit modifier +1
         self.assertTrue(float_eq(
             get_hit_ratio(
