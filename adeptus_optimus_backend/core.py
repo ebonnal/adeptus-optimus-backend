@@ -179,7 +179,7 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 13)
+            assert (len(options) == 14)
             return Options(
                 hit_modifier=
                 int(options[Options.hit_modifier_key]) if len(options[Options.hit_modifier_key]) else 0,
@@ -407,7 +407,8 @@ def get_success_ratio(necessary_roll,
                       modifier,
                       auto_success_on_6=True,
                       reroll=Options.none,
-                      dakka3=Options.none
+                      dakka3=Options.none,
+                      explodes=Options.none,
                       ):
     """
     reroll and dakka3 are applied regarding unmodified rolls.
@@ -415,7 +416,7 @@ def get_success_ratio(necessary_roll,
     assert (reroll in {Options.none, Options.ones, Options.onestwos, Options.full})
     assert (dakka3 in {Options.none, 5, 6})
     assert (type(modifier) is int)
-    key = f"{necessary_roll},{modifier},{auto_success_on_6},{reroll},{dakka3},"
+    key = f"{necessary_roll},{modifier},{auto_success_on_6},{reroll},{dakka3},{explodes}"
     success_ratio = Caches.success_ratios_cache.get(key, None)
     if success_ratio is None:
         modified_necessary_roll = necessary_roll - modifier
@@ -430,7 +431,8 @@ def get_success_ratio(necessary_roll,
             dakka3_consumed=dakka3 == Options.none,
             modified_necessary_roll=modified_necessary_roll,
             reroll=reroll,
-            dakka3=dakka3
+            dakka3=dakka3,
+            explodes=explodes
         )
 
         Caches.success_ratios_cache[key] = success_ratio
@@ -438,21 +440,27 @@ def get_success_ratio(necessary_roll,
     return success_ratio
 
 
-def _visit_rolls_tree(reroll_consumed, dakka3_consumed, modified_necessary_roll, reroll, dakka3):
+def _visit_rolls_tree(reroll_consumed, dakka3_consumed, modified_necessary_roll, reroll, dakka3, explodes):
     successes_ratio = 0
+    # unmodified dice roll possible events: 1, 2, 3, 4, 5, 6
     for i in range(1, 7):
+        # explodes
+        if explodes != Options.none and explodes >= i:
+            successes_ratio += 1/6
+        # succeeds or reroll
         if i >= modified_necessary_roll:
             successes_ratio += 1 / 6
         elif not reroll_consumed and reroll != Options.none:
             if reroll == Options.ones and i == 1:
-                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3, explodes)
             elif reroll == Options.onestwos and i <= 2:
-                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3, explodes)
             elif reroll == Options.full:
-                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3)
+                successes_ratio += 1 / 6 * _visit_rolls_tree(True, dakka3_consumed, modified_necessary_roll, reroll, dakka3, explodes)
+        # dakka3
         if not dakka3_consumed and dakka3 != Options.none and i >= dakka3:
             # dakka result in a new dice roll that may be rerolled
-            successes_ratio += 1 / 6 * _visit_rolls_tree(reroll == Options.none, True, modified_necessary_roll, reroll, dakka3)
+            successes_ratio += 1 / 6 * _visit_rolls_tree(reroll == Options.none, True, modified_necessary_roll, reroll, dakka3, explodes)
     return successes_ratio
 
 
@@ -761,13 +769,14 @@ def get_slained_figs_percent(state_):
 
 
 def get_slained_figs_percent_per_unsaved_wound_key(weapon, target):
-    return f"{weapon.d}," \
+    key = f"{weapon.d}," \
            f"{target.fnp}," \
            f"{target.w}," \
            f"{weapon.options.reroll_damages}," \
-           f"{weapon.options.roll_damages_twice}," \
-           f"{weapon.options.snipe}"
-
+           f"{weapon.options.roll_damages_twice},"
+    if weapon.options.snipe != Options.not_activated_value[Options.snipe_key]:
+        key += f"{weapon.options.snipe}" + get_unsaved_wound_ratio_key(weapon, target)
+    return key
 
 def get_slained_figs_percent_per_unsaved_wound(weapon, target):
     """
@@ -775,8 +784,7 @@ def get_slained_figs_percent_per_unsaved_wound(weapon, target):
     n_unsaved_wounds_init=10:  5 sec, res prec +-0.1  compared to 64
     """
 
-    key = get_slained_figs_percent_per_unsaved_wound_key(weapon, target) + \
-        get_unsaved_wound_ratio_key(weapon, target)
+    key = get_slained_figs_percent_per_unsaved_wound_key(weapon, target)
 
     slained_figs_percent_per_unsaved_wound = Caches.slained_figs_percent_per_unsaved_wound_cache.get(key, None)
 
@@ -894,7 +902,7 @@ def compute_heatmap(profile_a, profile_b):
                 [8]
             ]
     ):
-        fnps = [7] if w > 5 else [7, 6, 5]  # w>inf: 4 times slower than w>5 TODO: put inf back
+        fnps = [7] if w > float('inf') else [7, 6, 5]  # w>inf: 4 times slower than w>5
 
         if Weapon.at_least_one_blast_weapon:
             if w > 3:

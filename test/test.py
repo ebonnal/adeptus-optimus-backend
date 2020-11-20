@@ -10,7 +10,7 @@ set_is_dev_execution(True)
 
 class Test(unittest.TestCase):
 
-    def test_compute_heatmap(self):
+    def compute_heatmap(self):
         profile_a = Profile([Weapon(hit="2", s="1")], "1")
         profile_b = Profile([Weapon(s="8")], "100")
         # with cache:
@@ -32,7 +32,8 @@ class Test(unittest.TestCase):
 
         z_matrix_2 = with_timer(lambda: compute_heatmap(profile_a, profile_b)["z"])
         self.assertTrue(
-            all([all([e_1 == e_2 for e_1, e_2 in zip(line_1, line_2)]) for line_1, line_2 in zip(z_matrix_1, z_matrix_2)])
+            all([all([e_1 == e_2 for e_1, e_2 in zip(line_1, line_2)]) for line_1, line_2 in
+                 zip(z_matrix_1, z_matrix_2)])
         )
 
     def test_doms_alloc(self):
@@ -49,6 +50,13 @@ class Test(unittest.TestCase):
         #         Target(w=100)
         #     ), 0.01, verbose=True
         # ))
+
+        # Without snipe on, changing unsaved_wound_ratio does not impact result
+        self.assertEqual(
+            get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4, sv=2, invu=6)),
+            get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4, sv=6))
+        )
+
         # Damages reroll
         self.assertTrue(
             float_eq(get_slained_figs_percent_per_unsaved_wound(Weapon(d=DiceExpr(1, 3)), Target(w=100, fnp=4)),
@@ -191,18 +199,19 @@ class Test(unittest.TestCase):
     def test_engine_core(self):
         # Options general
         self.assertEqual(Options.parse({"hit_modifier": "",
-                                       "wound_modifier": "",
-                                       "save_modifier": "",
-                                       "reroll_hits": "ones",
-                                       "reroll_wounds": "",
-                                       "dakka3": "5",
-                                       "auto_wounds_on": "",
-                                       "is_blast": "yes",
-                                       "auto_hit": "",
-                                       "wounds_by_2D6": "",
-                                       "reroll_damages": "yes",
-                                       "roll_damages_twice": "",
-                                       "snipe": ""}).dakka3, 5)
+                                        "wound_modifier": "",
+                                        "save_modifier": "",
+                                        "reroll_hits": "ones",
+                                        "reroll_wounds": "",
+                                        "dakka3": "5",
+                                        "auto_wounds_on": "",
+                                        "is_blast": "yes",
+                                        "auto_hit": "",
+                                        "wounds_by_2D6": "",
+                                        "reroll_damages": "yes",
+                                        "roll_damages_twice": "",
+                                        "snipe": "",
+                                        "hit_explodes": "5"}).dakka3, 5)
         self.assertEqual(Options.parse_snipe("wound,3,2D3")[Options.snipe_n_mortals], DiceExpr(2, 3))
 
         self.assertRaises(RequirementError, lambda: Options(wounds_by_2D6=True, wound_modifier=-1))
@@ -297,7 +306,8 @@ class Test(unittest.TestCase):
             get_hit_ratio(
                 Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(dakka3=6, hit_modifier=1))),
             get_hit_ratio(
-                Weapon(hit="4", a="1", s="4", ap="D6", d="D6", options=Options(reroll_hits=Options.ones, hit_modifier=1)))))
+                Weapon(hit="4", a="1", s="4", ap="D6", d="D6",
+                       options=Options(reroll_hits=Options.ones, hit_modifier=1)))))
         # Assert 1s and 2s is like full for WSBS=4+ and hit modifier +1
         self.assertTrue(float_eq(
             get_hit_ratio(
