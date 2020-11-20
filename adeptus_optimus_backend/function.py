@@ -4,7 +4,7 @@ from time import time
 
 from .utils import RequirementError, with_minimum_exec_time, is_dev_execution
 from .core import compute_heatmap, Profile, Weapon
-from .link import get_short_dynamic_link
+from .link import get_short_dynamic_link, get_long_dynamic_link
 
 
 def parse_profile(letter, params):
@@ -68,7 +68,7 @@ def treat_request(request, allowed_origin):
         elif share_settings is not None:  # dynamic short link gen
             link = f"https://adeptus-optimus.web.app?share_settings={share_settings}"
             if is_dev_execution():
-                short_dynamic_link = link
+                short_dynamic_link = get_long_dynamic_link(link)
             else:
                 short_dynamic_link = get_short_dynamic_link(link)
             response = {"link": short_dynamic_link}, 200, headers
@@ -80,7 +80,7 @@ def treat_request(request, allowed_origin):
         response = {"msg": f"{type(e)}: {e}"}, 500, headers
     if is_dev_execution():
         print(f"Request processing took {time() - start_time} seconds")
-    print(f"ip:{request.remote_addr}")
+    print(f"user_ip:{request.remote_addr}")
     return response
 
 
