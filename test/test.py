@@ -536,20 +536,34 @@ class Test(unittest.TestCase):
         self.assertEqual(compute_necessary_wound_roll(8, 4), 2)
 
     def test_engine_core(self):
-        self.assertEqual(Options.parse({"hit_modifier": "",
-                                        "wound_modifier": "",
-                                        "save_modifier": "",
-                                        "reroll_hits": "ones",
-                                        "reroll_wounds": "",
-                                        "dakka3": "5",
-                                        "auto_wounds_on": "",
-                                        "is_blast": "yes",
-                                        "auto_hit": "",
-                                        "wounds_by_2D6": "",
-                                        "reroll_damages": "yes",
-                                        "roll_damages_twice": "",
-                                        "snipe": "",
-                                        "hit_explodes": "5"}).dakka3, 5)
+        opt1 = Options.parse({"hit_modifier": "",
+                              "wound_modifier": "",
+                              "save_modifier": "",
+                              "reroll_hits": "ones",
+                              "reroll_wounds": "",
+                              "dakka3": "5",
+                              "auto_wounds_on": "",
+                              "is_blast": "yes",
+                              "auto_hit": "",
+                              "wounds_by_2D6": "",
+                              "reroll_damages": "yes",
+                              "roll_damages_twice": "",
+                              "snipe": "",
+                              "hit_explodes": "5"})
+        self.assertEqual(opt1.dakka3, 5)
+        # missing keys
+        opt2 = Options.parse({"hit_modifier": "",
+                              "reroll_hits": "ones",
+                              "reroll_wounds": "",
+                              "dakka3": "5",
+                              "auto_wounds_on": "",
+                              "is_blast": "yes",
+                              "reroll_damages": "yes",
+                              "snipe": "",
+                              "hit_explodes": "5"})
+        self.assertEqual(opt2.dakka3, 5)
+        self.assertDictEqual(opt1.__dict__, opt2.__dict__)
+
         self.assertEqual(Options.parse_snipe("wound,3,D3")[Options.snipe_n_mortals], DiceExpr(1, 3))
         self.assertRaises(RequirementError, lambda: Options.parse_snipe("wound,3,2D3")[Options.snipe_n_mortals])
 

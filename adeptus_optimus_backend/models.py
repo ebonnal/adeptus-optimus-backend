@@ -173,6 +173,8 @@ class Options:
         hit_explodes_key: "An unmodified hit roll of _+ scores one additional hit"
     }
 
+    opt_keys = set(opt_key_to_repr.keys())
+
     not_activated_value = {
         hit_modifier_key: 0,
         wound_modifier_key: 0,
@@ -275,7 +277,11 @@ class Options:
         if isinstance(options, Options):
             return options
         else:
-            assert (len(options) == 14)
+            assert (len(options) <= 14)
+            assert (all([opt_key in Options.opt_keys for opt_key in options.keys()]))
+            # replace missing options by ""
+            for option_key in Options.opt_keys:
+                options[option_key] = options.get(option_key, "")
             return Options(
                 hit_modifier=
                 int(options[Options.hit_modifier_key]) if len(options[Options.hit_modifier_key]) else 0,
@@ -300,8 +306,9 @@ class Options:
                 reroll_damages=
                 bool(options[Options.reroll_damages_key]) if len(options[Options.reroll_damages_key]) else False,
                 roll_damages_twice=
-                bool(options[Options.roll_damages_twice_key]) if len(
-                    options[Options.roll_damages_twice_key]) else False,
+                bool(options[Options.roll_damages_twice_key])
+                if len(options[Options.roll_damages_twice_key])
+                else False,
                 snipe=
                 Options.parse_snipe(options[Options.snipe_key]) if len(options[Options.snipe_key]) else Options.none
             )
