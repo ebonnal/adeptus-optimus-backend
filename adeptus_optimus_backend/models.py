@@ -160,16 +160,16 @@ class Options:
         hit_modifier_key: "Hit roll modifier",
         wound_modifier_key: "Wound roll modifier",
         save_modifier_key: "Save roll modifier",
-        reroll_hits_key: "Hits reroll",
-        reroll_wounds_key: "Wounds reroll",
+        reroll_hits_key: "Hit roll reroll",
+        reroll_wounds_key: "Wound roll reroll",
         dakka3_key: "An unmodified hit roll of _+ triggers one additional hit roll",
         auto_wounds_on_key: "An unmodified hit roll of _+ always hits and automatically wounds",
         is_blast_key: "Is a blast weapon",
         auto_hit_key: "Automatically hits",
         wounds_by_2D6_key: "Wounds if the result of 2D6 >= target’s Toughness",
-        reroll_damages_key: "Damage rolls reroll",
+        reroll_damages_key: "Damage roll reroll",
         roll_damages_twice_key: "Roll random damages twice and discard the lowest result",
-        snipe_key: "For each _ roll of _+ , inflicts _ mortal wound(s)",
+        snipe_key: "Each _ roll of _+, inflicts _ mortal wound(s)",
         hit_explodes_key: "An unmodified hit roll of _+ scores one additional hit"
     }
 
