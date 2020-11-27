@@ -36,19 +36,14 @@ class Test(unittest.TestCase):
     ))
 
     def test_10_percent_diff_with_exact_modes(self):
-        weapon = Weapon(d="2")
-        for sv, invu in HeatMapConsts.sv_invu_dim:
-            for t, w, fnp, nm in HeatMapConsts.get_ts_ws_fnps_nm_dim(False):
-                target = Target(t=t, w=w, sv=sv, fnp=fnp, invu=invu)
-                a, b = (score_weapon_on_target(weapon, target, None, None),
-                        legacy.score_weapon_on_target(weapon, target, None, None))
-                print(
-                    "a",
-                    assert_float_eq(a, b, 1.10, False),
-                    target,
-                    a, b,
-                    abs(a - b) / abs(a)
-                )
+        for weapon in [Weapon(d="2"), self.sag]:
+            for sv, invu in HeatMapConsts.sv_invu_dim:
+                for t, w, fnp, nm in HeatMapConsts.get_ts_ws_fnps_nm_dim(False):
+                    target = Target(t=t, w=w, sv=sv, fnp=fnp, invu=invu)
+                    a, b = (score_weapon_on_target(weapon, target, None, None),
+                            legacy.score_weapon_on_target(weapon, target, None, None))
+                    assert_float_eq(a, b, 1.10)
+                    # print("a", float_eq(a, b), target, a, b, abs(a - b) / abs(a))
 
     def test_two_times_same_query(self):
         profile_a = Profile([Test.sag], "1")
