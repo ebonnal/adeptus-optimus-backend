@@ -10,7 +10,7 @@ from .linkgen import get_short_dynamic_link, get_long_dynamic_link
 def parse_profile(letter, params):
     present_indexes = []
     params_keys = params.keys()
-    for index in range(5):
+    for index in range(8):
         for key in params_keys:
             if f"{letter}{index}" in key:
                 present_indexes.append(index)
