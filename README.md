@@ -28,10 +28,12 @@ Using a 200MHz / 128MB **single** instance:
 [gcloud credential helper doc](https://cloud.google.com/container-registry/docs/advanced-authentication#gcloud-helper)
 ```bash
 gcloud auth login
+# or
 gcloud auth activate-service-account {service-account} --key-file={path to key file .json}
+
 gcloud auth configure-docker
 # sync config to be  able to use docker as root and find creds
-sudo cp ~/.config/gcloud /root/.config/gcloud
+sudo cp ~/.config/gcloud/* /root/.config/gcloud -r
 sudo docker tag foo:bar eu.gcr.io/{project-id}/foo:bar
 sudo docker push eu.gcr.io/{project-id}/foo:bar
 ```
