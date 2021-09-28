@@ -377,7 +377,7 @@ class Weapon:
                 f"Cannot activate '{Options.opt_key_to_repr[Options.roll_damages_twice_key]}' "
                 f"option with a non random Damage characteristic: {self.d}")
         self.s = DiceExpr.parse(s,
-                                complexity_threshold=12,
+                                complexity_threshold=20,  # handle stompa's strength
                                 raise_on_failure=True,
                                 allow_star=self.options.wounds_by_2D6)  # per each target O(n*dice_type)
         require(
