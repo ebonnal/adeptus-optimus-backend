@@ -642,6 +642,16 @@ class Test(unittest.TestCase):
                 Target(t=4, sv=6, n_models=10)
             ) == 3 * 1 / 9 + 3 * 2 / 9 + 4 * 3 / 9 + 5 * 2 / 9 + 6 * 1 / 9
         )
+        assert_float_eq(
+            get_n_attacks(
+                Weapon(hit="4", a="3D3", s="4", ap="D6", d="D6", options=Options(is_blast=True)),
+                Target(t=4, sv=6, n_models=10)
+            ),
+            get_n_attacks(
+                Weapon(hit="4", a="3D3", s="4", ap="D6", d="D6", options=Options(is_blast=False)),
+                Target(t=4, sv=6, n_models=10)
+            )
+        )
         self.assertTrue(
             get_n_attacks(
                 Weapon(hit="4", a="D3", s="4", ap="D6", d="D6", options=Options(is_blast=True)),
