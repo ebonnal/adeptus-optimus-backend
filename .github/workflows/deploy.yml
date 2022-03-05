@@ -1,0 +1,31 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v0
+      - name: Gcloud auth
+        env:
+          CLOUD_RUN_CD_SERVICE_ACCOUNT_KEY: ${{ secrets.CLOUD_RUN_CD_SERVICE_ACCOUNT_KEY }}
+          SERVICE_ACCOUNT_KEY_PATH: /tmp/service_account_key.json
+        run: |
+          echo $CLOUD_RUN_CD_SERVICE_ACCOUNT_KEY > $SERVICE_ACCOUNT_KEY_PATH
+          SERVICE_ACCOUNT_NAME=$(cat $SERVICE_ACCOUNT_KEY_PATH | jq '.client_email' | tr -d '"')
+          gcloud auth activate-service-account $SERVICE_ACCOUNT_NAME --key-file=$SERVICE_ACCOUNT_KEY_PATH
+      - name: Build and push image
+        run: |
+          GIT_SHORT_HASH=$(git rev-parse --short "$GITHUB_SHA")
+          IMAGE_NAME=eu.gcr.io/adeptus-optimus/adeptus-optimus-backend:$GIT_SHORT_HASH
+          gcloud builds submit --tag $IMAGE_NAME --project adeptus-optimus
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy engine --image=${{ env.IMAGE_NAME }} --region=europe-west1 --project=adeptus-optimus

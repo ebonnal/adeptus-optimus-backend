@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.8']
+        python-version: ['3.6', '3.10']
 
     steps:
     - uses: actions/checkout@v1
@@ -18,7 +18,8 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: unittest
+    - name: Run unittest
       run: |
         pip install -r ./requirements.txt
+        cd src
         python -m unittest
