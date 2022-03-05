@@ -1,7 +1,32 @@
 # Adeptus Optimus Backend
-[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)
 
-[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)
+|branch|CI|CD|
+|--|--|--|
+|main|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
+|prod|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
+
+
+
+
+# Locally
+## Run app
+```bash
+pip3 install -r requirements.txt
+
+python app.py
+# or
+python -m flask run
+```
+
+## Run unit tests
+```bash
+cd src
+python -m unittest
+```
+
+# GCP Deployment
+CD deploys [the app on Cloud Run](https://console.cloud.google.com/run/detail/europe-west1/engine/metrics?authuser=0&project=adeptus-optimus)
+
 
 # Locally
 ## Run app
