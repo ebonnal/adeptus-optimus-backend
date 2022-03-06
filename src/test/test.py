@@ -820,13 +820,13 @@ class Test(unittest.TestCase):
                 Target(t=4, sv=3)
             )
         )
-        # when reaching Invu, save modifier is better than equivalent AP
-        self.assertGreater(
+        # when reaching Invu, -2 save modifier and -2 AP are equivalent
+        self.assertEqual(
             get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="0", d="D6", options=Options(save_modifier=-2)),
                 Target(t=4, sv=3, invu=4)
             ),
-            1.1 * get_unsaved_wound_ratio(
+            get_unsaved_wound_ratio(
                 Weapon(hit="6", a="1", s="3", ap="2", d="D6", options=Options(save_modifier=0)),
                 Target(t=4, sv=3, invu=4)
             )

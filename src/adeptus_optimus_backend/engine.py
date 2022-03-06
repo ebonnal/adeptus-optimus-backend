@@ -305,12 +305,21 @@ def get_unsaved_wound_ratio(weapon, target):
     if unsaved_wound_ratio is None:
         unsaved_wound_ratio = 0
         for ap_roll, prob_ap_roll in get_prob_by_roll_result(weapon.ap).items():
-            save_roll = target.sv + ap_roll
-            if target.invu is not None:
-                save_roll = min(save_roll, target.invu)
-            save_fail_ratio = 1 - get_success_ratio(save_roll,
-                                                    weapon.options.save_modifier,
-                                                    auto_success_on_6=False)
+            armor_save_roll = target.sv + ap_roll
+            armor_save_fail_ratio = 1 - get_success_ratio(
+                armor_save_roll,
+                weapon.options.save_modifier,
+                auto_success_on_6=False,
+            )
+            if target.invu is None:
+                save_fail_ratio = armor_save_fail_ratio
+            else:
+                invu_fail_ratio = 1 - get_success_ratio(
+                    target.invu,
+                    0,
+                    auto_success_on_6=False,
+                )
+                save_fail_ratio = min(armor_save_fail_ratio, invu_fail_ratio)
             unsaved_wound_ratio += save_fail_ratio * prob_ap_roll
         Caches.unsaved_wound_ratios_cache[key] = unsaved_wound_ratio
 
