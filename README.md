@@ -2,8 +2,8 @@
 
 |branch|CI|CD|
 |--|--|--|
-|main|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
-|prod|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
+|main|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/build/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
+|prod|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/build/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
 
 
 
