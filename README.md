@@ -13,9 +13,19 @@
 ```bash
 pip3 install -r requirements.txt
 
+cd src
+
 python app.py
 # or
-python -m flask run
+python -m flask run --port=8080
+# or
+waitress-serve --call 'app:create_app'
+```
+
+and 
+
+```bash
+curl -X GET http://127.0.0.1:8080/engine/
 ```
 
 ## Run unit tests
