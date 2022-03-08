@@ -14,10 +14,7 @@
 pip3 install -r requirements.txt
 
 cd src
-<<<<<<< HEAD
-=======
 
->>>>>>> 43f4f51b4e325b94ed1c96f14bef6c1aa0eaa5ec
 python app.py
 # or
 python -m flask run --port=8080
