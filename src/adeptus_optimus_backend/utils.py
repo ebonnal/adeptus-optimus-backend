@@ -2,6 +2,7 @@ import re
 
 from time import time, sleep
 
+min_exec_duration_seconds = 3
 
 def apply_mask_matrix(matrix, mask_matrix, predicate_on_mask_matrix):
     return [
@@ -55,12 +56,9 @@ def set_is_dev_execution(boolean):
     _is_dev_execution = boolean
 
 
-def with_minimum_exec_time(seconds_min_exec_time, callable, seconds_step=0.1):
-    start = time()
-    res = callable()
-    while time() - start < seconds_min_exec_time:
-        sleep(seconds_step)
-    return res
+def delay_from(from_instant, for_seconds):
+    if time() - from_instant < for_seconds:
+        sleep(for_seconds - (time() - from_instant))
 
 
 def with_timer(func):

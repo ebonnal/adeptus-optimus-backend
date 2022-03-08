@@ -882,7 +882,7 @@ class Test(unittest.TestCase):
 
     def test_utils(self):
         start = time()
-        with_minimum_exec_time(0.3, lambda: 1)
+        delay_from(start, 0.5)
         self.assertGreater(time() - start, 0.3)
 
         self.assertEqual(DiceExpr(5, 3).n_cases(), 11)
