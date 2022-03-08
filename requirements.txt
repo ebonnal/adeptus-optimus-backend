@@ -1,2 +1,5 @@
-requests
-numpy
+Flask==2.0.3
+Flask-Limiter==2.2.0
+numpy==1.20.3
+requests==2.26.0
+waitress==2.1.0

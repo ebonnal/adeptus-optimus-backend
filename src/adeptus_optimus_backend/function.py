@@ -2,7 +2,7 @@ import json
 import traceback
 from time import time
 
-from .utils import RequirementError, with_minimum_exec_time, is_dev_execution
+from .utils import RequirementError, is_dev_execution
 from .engine import compute_heatmap, Profile, Weapon
 from .linkgen import get_short_dynamic_link, get_long_dynamic_link
 
@@ -81,13 +81,3 @@ def treat_request(request, allowed_origin):
         print(f"Request processing took {time() - start_time} seconds")
     print(f"user_ip:{request.remote_addr}")
     return response
-
-
-def ddos_tanking_treat_request(request, allowed_origins):
-    # Ensures together with --max-instance that even in case
-    # of DDOS we do not overpass 2 000 000 requests by month: 30*24*
-    min_sec = 3
-    percent_marge = 5
-    month_in_seconds = (31 * 24 * 3600)
-    assert ((1 + percent_marge / 100) * month_in_seconds < 2000000 * min_sec)
-    return with_minimum_exec_time(min_sec, lambda: treat_request(request, allowed_origins))

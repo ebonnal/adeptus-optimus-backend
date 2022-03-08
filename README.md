@@ -2,8 +2,8 @@
 
 |branch|CI|CD|
 |--|--|--|
-|main|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
-|prod|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
+|main|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/build/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=main)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
+|prod|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/test/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/build/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|[![Actions Status](https://github.com/bonnal-enzo/adeptus-optimus-backend/workflows/deploy/badge.svg?branch=prod)](https://github.com/bonnal-enzo/adeptus-optimus-backend/actions)|
 
 
 
@@ -14,9 +14,21 @@
 pip3 install -r requirements.txt
 
 cd src
+<<<<<<< HEAD
+=======
+
+>>>>>>> 43f4f51b4e325b94ed1c96f14bef6c1aa0eaa5ec
 python app.py
 # or
-python -m flask run
+python -m flask run --port=8080
+# or
+waitress-serve --call 'app:create_app'
+```
+
+and 
+
+```bash
+curl -X GET http://127.0.0.1:8080/engine/
 ```
 
 and 
