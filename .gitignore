@@ -3,3 +3,4 @@
 /stale_outputs_checked
 /*.json
 **/*.pyc
+**/.output.json
