@@ -13,9 +13,16 @@
 ```bash
 pip3 install -r requirements.txt
 
+cd src
 python app.py
 # or
 python -m flask run
+```
+
+and 
+
+```bash
+curl -X GET http://127.0.0.1:5000/engine/
 ```
 
 ## Run unit tests
